@@ -7,17 +7,17 @@ Severity: 🔴 release-blocker · 🟠 high · 🟡 medium · ⚪ low
 
 | # | Sev | Item | Evidence |
 |---|---|---|---|
-| A1 | 🔴 | `requireAuth()` never verifies the cookie; whole API open to anonymous callers | `lib/api-utils.ts:24-47`; `getSession()` never called; `middleware.ts` no-op; `/api/auth/session` always true |
-| A2 | 🔴 | Fresh install auto-creates `admin`/`admin123` + demo data, no forced change | `lib/database/seed.ts:41-50,104-106` |
-| A3 | 🔴 | Hardcoded JWT secret fallback in source | `lib/auth-edge.ts:11-14` |
-| A4 | 🔴 | DB restore overwrites live DB with unvalidated/unauthenticated input; `settingsCount < 0` rollback dead code | `app/api/backup/route.ts:53-115` |
+| A1 | 🔴 ✅ FIXED 2026-11-16 | `requireAuth()` now verifies the session cookie (401 otherwise); middleware redirects pages→/login and 401s `/api/*`; `/api/auth/session` truthful | `lib/api-utils.ts`, `middleware.ts`, `app/api/auth/session/route.ts` |
+| A2 | 🟠 PARTIAL | Fresh install still seeds `admin`/`admin123`; now documented + verified present in committed `dev.db`; forced password change on first login NOT implemented yet | `lib/database/seed.ts:41-50` |
+| A3 | 🔴 ✅ FIXED 2026-11-16 | Hardcoded fallback secret removed for production (fail-fast AUTH_SECRET ≥32 chars; dev-only fallback) | `lib/auth-edge.ts` |
+| A4 | 🔴 ✅ FIXED 2026-11-16 | Restore: size cap 250 MB (413), magic bytes, core-table structural check, WAL checkpoint before snapshot, `quick_check` + smoke counts, **auto-rollback** to `.pre-restore.bak` on integrity failure | `app/api/backup/route.ts` |
 | A5 | 🟠 | Refund amounts uncapped vs line totals (money destruction) | `lib/validation/schemas.ts:139`, `lib/services/returns.ts:82-118,226,559` |
-| A6 | 🟠 | Zero rate-limit/brute-force protection on login & password change; bcrypt skipped on unknown user (timing oracle) | `app/api/auth/login/route.ts:8-49`, `app/api/settings/password/route.ts:7-51` |
-| A7 | 🟠 | Unbounded payloads: `logoDataUrl` no max; `reports?export=1` unbounded; backup upload no size cap | `lib/validation/schemas.ts:171`, `app/api/reports/route.ts:*`, `app/api/backup/route.ts:58-71` |
+| A6 | 🟠 | Zero rate-limit/brute-force protection on login & password change | `app/api/auth/login/route.ts:8-49`, `app/api/settings/password/route.ts:7-51` |
+| A7 | 🟠 | Unbounded payloads: `logoDataUrl` no max; `reports?export=1` unbounded | `lib/validation/schemas.ts:171`, `app/api/reports/route.ts:*` |
 | A8 | 🟡 | No security headers / CSP in `next.config.ts`; cookie `sameSite:'none'` in https context defeats CSRF | `next.config.ts`, `lib/auth.ts:47-57` |
 | A9 | 🟡 | Mass-assignment latent: zod strips unknown keys but nothing uses `.strict()` — one schema edit = new writable field | `lib/validation/schemas.ts` (no `.strict()`) |
-| A10 | 🟡 | Username enumerable via login timing | `app/api/auth/login/route.ts:18-25` |
-| A11 | ⚪ | Branding endpoint publicly leaks shop address/phones/logo (by design for login page, but over-discloses) | `app/api/branding/route.ts:6-13` |
+| A10 | 🟠 ✅ FIXED 2026-11-16 | Login timing oracle closed (dummy bcrypt hash for unknown users) | `app/api/auth/login/route.ts` |
+| A11 | ⚪ | Branding endpoint requires auth now (middleware) — over-disclosure resolved | `middleware.ts` |
 
 ## B. Correctness — inventory & money
 
@@ -42,7 +42,7 @@ Severity: 🔴 release-blocker · 🟠 high · 🟡 medium · ⚪ low
 
 | # | Item | Evidence |
 |---|---|---|
-| C1 | ~59 copies of the same fake-auth guard + pagination envelope across routes | grep `errorResponse` (59), `parsePaginationParams` |
+| C1 | ~59 copies of the same `requireAuth` guard + pagination envelope across routes (guards are real now, still duplicated — extract shared `withAuth`/`jsonList` helpers) | grep `errorResponse` (59), `parsePaginationParams` |
 | C2 | Sale create vs update (~200 lines mirrored); purchase create vs update | `sales.ts:49-258` vs `331-499`; `purchases.ts:75-250` vs `341-505` |
 | C3 | Three divergent number-generators (invoice/PO/return) | see B4 |
 | C4 | `lib/api-utils.ts` imports `ensureDatabaseSeeded` — auth check is also the seeder (layering inversion) | `lib/api-utils.ts:8` |
@@ -80,7 +80,7 @@ Severity: 🔴 release-blocker · 🟠 high · 🟡 medium · ⚪ low
 
 ## Fix order (drives Phase 1→3)
 
-1. A1–A4 (auth, seed creds, secret, restore hardening)
+1. ~~A1–A4 (auth, seed creds, secret, restore hardening)~~ **A1, A3, A4, A10 done 2026-11-16** — A2 (forced password change) pending
 2. B1, B2, B4 (atomic stock + numbering)
 3. A5, B3 (caps, over-return)
 4. A6, A7, A8 (rate limit, payload caps, headers)

@@ -30,8 +30,6 @@ export async function POST(req: NextRequest) {
         ...(data.username ? { username: data.username } : {}),
       },
     });
-    const { invalidateSessionCache } = await import('@/lib/api-utils');
-    invalidateSessionCache();
 
     const response = NextResponse.json({ success: true, username: updated.username });
     await attachSessionCookie(

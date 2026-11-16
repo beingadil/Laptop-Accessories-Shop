@@ -8,9 +8,24 @@ export interface AdminSessionPayload {
   displayName: string;
 }
 
+// Development-only fallback so `next dev` works without .env setup.
+// Production (NODE_ENV=production, e.g. the packaged Electron app) REQUIRES
+// AUTH_SECRET — Electron's main process always injects a generated one.
+const DEV_FALLBACK_SECRET = 'tayyab-enterprises-dev-only-secret-not-for-production';
+const MIN_SECRET_LENGTH = 32;
+
 function getSecretKey(): Uint8Array {
-  const secret = process.env.AUTH_SECRET || 'tayyab-enterprises-local-desktop-secret-key-2026';
-  return new TextEncoder().encode(secret);
+  const secret = process.env.AUTH_SECRET;
+  if (secret && secret.length >= MIN_SECRET_LENGTH) {
+    return new TextEncoder().encode(secret);
+  }
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'AUTH_SECRET is missing or shorter than 32 characters. ' +
+        'Set AUTH_SECRET to a random 64-char hex string before starting the server.'
+    );
+  }
+  return new TextEncoder().encode(DEV_FALLBACK_SECRET);
 }
 
 export async function signSessionToken(payload: AdminSessionPayload): Promise<string> {

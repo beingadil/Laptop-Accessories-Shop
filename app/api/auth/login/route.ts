@@ -5,22 +5,27 @@ import { attachSessionCookie, verifyPassword } from '@/lib/auth';
 import { ensureDatabaseSeeded } from '@/lib/database/seed';
 import { handleApiError } from '@/lib/api-utils';
 
+// Precomputed bcrypt hash of a random value. Used only to equalize response
+// timing when the requested username does not exist. Never a valid credential.
+const DUMMY_PASSWORD_HASH = '$2b$10$A6/L8Vu/r.SdwGuL1FZukO/06TWoMEs2QDQ8CLjHegzGw85hymZni';
+
 export async function POST(req: NextRequest) {
   try {
     await ensureDatabaseSeeded();
     const body = await req.json();
     const parsed = loginSchema.parse(body);
 
+    // Always run a bcrypt comparison (against a dummy hash when the user does not
+    // exist) so response timing does not reveal which usernames are valid.
     const admin = await prisma.adminUser.findUnique({
       where: { username: parsed.username },
     });
 
-    if (!admin) {
-      return NextResponse.json({ error: 'Invalid username or password.' }, { status: 401 });
-    }
-
-    const isValid = await verifyPassword(parsed.password, admin.passwordHash);
-    if (!isValid) {
+    const isValid = await verifyPassword(
+      parsed.password,
+      admin?.passwordHash ?? DUMMY_PASSWORD_HASH
+    );
+    if (!admin || !isValid) {
       return NextResponse.json({ error: 'Invalid username or password.' }, { status: 401 });
     }
 

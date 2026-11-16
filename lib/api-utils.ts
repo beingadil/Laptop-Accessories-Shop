@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
-import { prisma } from '@/lib/prisma';
 import type { AdminSessionPayload } from '@/lib/auth';
-import { ensureDatabaseSeeded } from '@/lib/database/seed';
+import { getSession } from '@/lib/auth';
 
 export class BusinessRuleError extends Error {
   status: number;
@@ -13,36 +12,28 @@ export class BusinessRuleError extends Error {
   }
 }
 
-const globalForSession = globalThis as unknown as {
-  __tayyabAdminSession?: AdminSessionPayload;
-};
-
+/**
+ * @deprecated Stateless JWTs mean there is no server-side session cache to
+ * invalidate. Kept as a no-op so existing call sites don't break.
+ */
 export function invalidateSessionCache() {
-  globalForSession.__tayyabAdminSession = undefined;
+  // no-op by design (stateless sessions)
 }
 
-export async function requireAuth(): Promise<{
-  session: AdminSessionPayload;
-  errorResponse: null;
-}> {
-  await ensureDatabaseSeeded();
-
-  if (globalForSession.__tayyabAdminSession) {
-    return { session: globalForSession.__tayyabAdminSession, errorResponse: null };
+export async function requireAuth(): Promise<
+  | { session: AdminSessionPayload; errorResponse: null }
+  | { session: null; errorResponse: NextResponse }
+> {
+  const session = await getSession();
+  if (!session) {
+    return {
+      session: null,
+      errorResponse: NextResponse.json(
+        { error: 'Authentication required.' },
+        { status: 401 }
+      ),
+    };
   }
-
-  const admin = await prisma.adminUser.findFirst({
-    orderBy: { createdAt: 'asc' },
-    select: { id: true, username: true, displayName: true },
-  });
-
-  const session: AdminSessionPayload = {
-    userId: admin?.id || 'admin',
-    username: admin?.username || 'admin',
-    displayName: admin?.displayName || 'Tayyab Admin',
-  };
-
-  globalForSession.__tayyabAdminSession = session;
   return { session, errorResponse: null };
 }
 

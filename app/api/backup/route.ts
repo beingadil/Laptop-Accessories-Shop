@@ -5,6 +5,20 @@ import { prisma } from '@/lib/prisma';
 import { requireAuth, handleApiError, BusinessRuleError } from '@/lib/api-utils';
 import { slugifyShopName } from '@/lib/branding';
 
+// A backup larger than this is rejected outright (memory + disk exhaustion guard).
+const MAX_BACKUP_BYTES = 250 * 1024 * 1024; // 250 MB
+
+// Tables that every Tayyab Enterprises database must contain. Their presence in
+// the backup's sqlite_master text is a cheap structural sanity check — it rejects
+// "a valid SQLite file that is not this app's database".
+const REQUIRED_TABLE_MARKERS = [
+  'Product',
+  'Sale',
+  'ShopSettings',
+  'AdminUser',
+  'StockMovement',
+];
+
 function resolveSqliteDbPath(): string {
   const dbUrl = process.env.DATABASE_URL || 'file:./dev.db';
   const rawPath = dbUrl.replace(/^file:/, '');
@@ -51,6 +65,10 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const dbPath = resolveSqliteDbPath();
+  const preRestoreCopy = `${dbPath}.pre-restore.bak`;
+  let tookPreRestoreCopy = false;
+
   try {
     const auth = await requireAuth();
     if (auth.errorResponse) return auth.errorResponse;
@@ -67,24 +85,48 @@ export async function POST(req: NextRequest) {
       throw new BusinessRuleError('Please select a valid SQLite (.db) backup file.');
     }
 
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    // Validate SQLite file magic header ("SQLite format 3\0")
-    const header = buffer.subarray(0, 16).toString('utf8');
-    if (header !== 'SQLite format 3\u0000') {
+    if (file.size > MAX_BACKUP_BYTES) {
       throw new BusinessRuleError(
-        'Invalid backup file. Selected file is not a valid Tayyab Enterprises SQLite database.'
+        `Backup file is too large (${Math.round(file.size / 1024 / 1024)} MB). Maximum supported size is ${MAX_BACKUP_BYTES / 1024 / 1024} MB.`,
+        413
       );
     }
 
-    const dbPath = resolveSqliteDbPath();
-    const preRestoreCopy = `${dbPath}.pre-restore.bak`;
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
+    // Validate SQLite file magic header ("SQLite format 3" + NUL byte)
+    const isSqliteMagic =
+      buffer.length > 16 &&
+      buffer.subarray(0, 15).toString('latin1') === 'SQLite format 3' &&
+      buffer[15] === 0;
+    if (!isSqliteMagic) {
+      throw new BusinessRuleError(
+        'Invalid backup file. Selected file is not a valid SQLite database.'
+      );
+    }
+
+    // Structural sanity check: the sqlite_master text (early pages of the file)
+    // must mention this app's core tables. Rejects valid-but-foreign databases.
+    const headText = buffer.subarray(0, Math.min(buffer.length, 512 * 1024)).toString('latin1');
+    const missing = REQUIRED_TABLE_MARKERS.filter((marker) => !headText.includes(marker));
+    if (missing.length > 0) {
+      throw new BusinessRuleError(
+        'This SQLite file is not a Tayyab Enterprises backup (missing required tables). Restore aborted.'
+      );
+    }
+
+    // Checkpoint current WAL so the pre-restore snapshot is complete, then back it up.
+    try {
+      await prisma.$queryRawUnsafe('PRAGMA wal_checkpoint(TRUNCATE);');
+    } catch {
+      // Ignore if not in WAL mode
+    }
     try {
       await fs.copyFile(dbPath, preRestoreCopy);
+      tookPreRestoreCopy = true;
     } catch {
-      // Ignore if no prior file
+      // No prior file — nothing to snapshot
     }
 
     await prisma.$disconnect();
@@ -94,17 +136,43 @@ export async function POST(req: NextRequest) {
     await fs.rm(`${dbPath}-shm`, { force: true });
     await fs.writeFile(dbPath, buffer);
 
-    await prisma.$connect();
-    // Smoke test critical table
-    const settingsCount = await prisma.shopSettings.count();
-    if (settingsCount < 0) {
-      throw new BusinessRuleError('Restored database failed integrity check.');
+    // Reconnect and run a real integrity check on the restored file.
+    // On ANY failure, roll back to the pre-restore snapshot.
+    let integrityError: string | null = null;
+    try {
+      await prisma.$connect();
+      const rows = await prisma.$queryRawUnsafe<Array<Record<string, string>>>('PRAGMA quick_check;');
+      const result = rows?.[0] ? String(Object.values(rows[0])[0]) : '';
+      if (result.toLowerCase() !== 'ok') {
+        integrityError = `quick_check reported: ${result || 'unknown failure'}`;
+      } else {
+        // Smoke test application-critical tables
+        await prisma.shopSettings.count();
+        await prisma.product.count();
+      }
+    } catch (err) {
+      integrityError = err instanceof Error ? err.message : 'unknown integrity failure';
+    }
+
+    if (integrityError) {
+      // Roll back to the snapshot
+      try {
+        await prisma.$disconnect();
+      } catch {
+        // best effort
+      }
+      if (tookPreRestoreCopy) {
+        await fs.copyFile(preRestoreCopy, dbPath);
+        await prisma.$connect().catch(() => {});
+      }
+      throw new BusinessRuleError(
+        `Restored file failed integrity check (${integrityError}). The previous database was restored automatically.`,
+        400
+      );
     }
 
     const { resetSeedCache } = await import('@/lib/database/seed');
-    const { invalidateSessionCache } = await import('@/lib/api-utils');
     resetSeedCache();
-    invalidateSessionCache();
 
     return NextResponse.json({
       success: true,

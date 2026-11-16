@@ -28,6 +28,7 @@ import {
   CreditCard,
   ShieldCheck,
   FolderTree,
+  LogOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -353,6 +354,17 @@ export function AppShell({
   const pathname = usePathname();
   const router = useRouter();
   const { branding } = useBranding();
+
+  const handleSignOut = React.useCallback(async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // Even if the request fails, drop the user back at the sign-in screen;
+      // the session cookie expires in 7 days regardless.
+    } finally {
+      router.replace('/login');
+    }
+  }, [router]);
   const [collapsed, setCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -685,12 +697,12 @@ export function AppShell({
           />
         </React.Suspense>
 
-        <div className="border-t border-slate-200 p-3 hidden lg:flex items-center justify-between">
+        <div className="border-t border-slate-200 p-3 flex items-center justify-between gap-2">
           <button
             type="button"
             onClick={() => setCollapsed((prev) => !prev)}
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            className="hidden lg:flex flex-1 items-center justify-center gap-2 rounded-lg border border-slate-200 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900"
           >
             {collapsed ? (
               <PanelLeftOpen className="h-4 w-4" />
@@ -700,6 +712,16 @@ export function AppShell({
                 <span>Collapse Menu</span>
               </>
             )}
+          </button>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            title="Sign out"
+            aria-label="Sign out"
+            className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 lg:px-2.5"
+          >
+            <LogOut className="h-4 w-4" />
+            <span>Sign out</span>
           </button>
         </div>
       </aside>

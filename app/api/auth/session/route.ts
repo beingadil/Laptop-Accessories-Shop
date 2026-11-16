@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/api-utils';
+import { getSession } from '@/lib/auth';
 
 export async function GET() {
-  const { session } = await requireAuth();
-  return NextResponse.json({ authenticated: true, user: session }, { status: 200 });
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ authenticated: false, user: null }, { status: 200 });
+  }
+  return NextResponse.json({ authenticated: true, user: session });
 }
