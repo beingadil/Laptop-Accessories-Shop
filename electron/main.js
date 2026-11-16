@@ -17,6 +17,23 @@ try {
 let mainWindow = null;
 let serverProcess = null;
 let activePort = 3000;
+let startupLogPath = null;
+
+function log(...args) {
+  const line = `[${new Date().toISOString()}] ${args
+    .map((a) => (typeof a === 'string' ? a : JSON.stringify(a)))
+    .join(' ')}`;
+  try {
+    if (!startupLogPath) {
+      startupLogPath = path.join(app.getPath('userData'), 'logs', 'startup.log');
+      fs.mkdirSync(path.dirname(startupLogPath), { recursive: true });
+    }
+    fs.appendFileSync(startupLogPath, line + '\n');
+  } catch {
+    // best effort
+  }
+  console.log(line);
+}
 
 function isDevMode() {
   return !app.isPackaged && process.env.ELECTRON_DEV === '1';
@@ -40,13 +57,31 @@ function findAvailablePort(preferred = 3456) {
   });
 }
 
-function waitForServer(url, timeoutMs = 30000) {
+let serverExited = null;
+function waitForServer(url, timeoutMs = 90000) {
   const start = Date.now();
+  serverExited = null;
+  if (serverProcess) {
+    serverProcess.once('exit', (code, signal) => {
+      serverExited = { code, signal };
+    });
+  }
   return new Promise((resolve, reject) => {
     const attempt = () => {
+      if (serverExited) {
+        reject(
+          new Error(
+            `The local application server exited before it became ready ` +
+              `(code ${serverExited.code ?? 'unknown'}${serverExited.signal ? `, signal ${serverExited.signal}` : ''}).\n\n` +
+              `Details were written to:\n${startupLogPath}`
+          )
+        );
+        return;
+      }
       const req = http.get(url, (res) => {
         res.resume();
         if (res.statusCode && res.statusCode < 500) {
+          log('server healthy after', Date.now() - start, 'ms');
           resolve();
         } else {
           retry();
@@ -60,8 +95,19 @@ function waitForServer(url, timeoutMs = 30000) {
     };
 
     const retry = () => {
+      if (serverExited) {
+        attempt();
+        return;
+      }
       if (Date.now() - start > timeoutMs) {
-        reject(new Error('Timed out waiting for local application server to start.'));
+        reject(
+          new Error(
+            `Timed out waiting for the local application server to start.\n\n` +
+              `This is usually antivirus or SmartScreen scanning the fresh install (everything is unsigned) ` +
+              `or the local server failed silently.\n\n` +
+              `Details were written to:\n${startupLogPath}`
+          )
+        );
       } else {
         setTimeout(attempt, 350);
       }
@@ -78,16 +124,25 @@ function ensurePersistentDatabase() {
   const targetDbPath = path.join(dbDir, 'tayyab-enterprises.db');
 
   if (!fs.existsSync(targetDbPath)) {
+    log('first run: seeding database...');
     const seedCandidates = [
       path.join(process.resourcesPath || '', 'prisma', 'dev.db'),
       path.join(__dirname, '..', 'prisma', 'dev.db'),
     ];
+    let copied = false;
     for (const src of seedCandidates) {
       if (fs.existsSync(src)) {
         fs.copyFileSync(src, targetDbPath);
+        log('seeded database from', src);
+        copied = true;
         break;
       }
     }
+    if (!copied) {
+      log('WARNING: no seed database found — the embedded server will migrate an empty database');
+    }
+  } else {
+    log('existing database found at', targetDbPath);
   }
 
   // Persist an offline installation secret for JWT session signing
@@ -140,6 +195,7 @@ async function startEmbeddedNextServer() {
     }
   }
 
+  log('spawning server:', serverEntry, 'on port', activePort);
   serverProcess = spawn(process.execPath, [serverEntry], {
     cwd: standaloneRoot,
     env: {
@@ -155,8 +211,19 @@ async function startEmbeddedNextServer() {
     stdio: 'pipe',
   });
 
+  log('database path:', targetDbPath);
+
+  serverProcess.on('error', (err) => {
+    log('server spawn ERROR:', err?.message || String(err));
+  });
+  serverProcess.on('exit', (code, signal) => {
+    log('server EXITED:', JSON.stringify({ code, signal }));
+  });
+  serverProcess.stdout?.on('data', (chunk) => {
+    log('[server]', String(chunk).trimEnd());
+  });
   serverProcess.stderr?.on('data', (chunk) => {
-    console.error('[NextServer]', chunk.toString());
+    log('[server]', String(chunk).trimEnd());
   });
 
   await waitForServer(`http://127.0.0.1:${activePort}/api/health`);
@@ -320,9 +387,11 @@ app.whenReady().then(async () => {
       autoUpdater.checkForUpdates().catch(() => {});
     }
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    log('startup failed:', message);
     dialog.showErrorBox(
       'Startup Error',
-      err instanceof Error ? err.message : 'Failed to start Tayyab Enterprises Management System.'
+      `${message}${startupLogPath ? `\n\nDetails written to:\n${startupLogPath}` : ''}`
     );
     app.quit();
   }

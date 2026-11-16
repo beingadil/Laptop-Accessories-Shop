@@ -6,6 +6,19 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export default defineConfig([{
+export default defineConfig([
+  {
+    ignores: [
+      "node_modules/**",
+      ".next/**",
+      "dist-electron/**",
+      "build/**",
+      "coverage/**",
+      "prisma/*.db",
+      "tests/integration/.tmp-integration.db",
+    ],
+  },
+  {
     extends: [...next],
-}]);
+  },
+]);
