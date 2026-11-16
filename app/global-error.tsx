@@ -24,7 +24,7 @@ export default function GlobalError({
           padding: '24px',
         }}
       >
-        <h1 style={{ fontSize: '20px', margin: 0 }}>Tayyab Enterprises Management System</h1>
+        <h1 style={{ fontSize: '20px', margin: 0 }}>Laptop Management System</h1>
         <p style={{ color: '#475569', maxWidth: 520, textAlign: 'center', margin: 0 }}>
           The application ran into an unexpected error.
           {error?.message ? ` (${error.message})` : ''}

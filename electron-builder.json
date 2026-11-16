@@ -1,8 +1,8 @@
 {
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
-  "appId": "com.tayyabenterprises.management",
-  "productName": "Tayyab Enterprises Management System",
-  "artifactName": "Tayyab-Enterprises-Management-System-Setup-${version}.${ext}",
+  "appId": "com.laptopmanagement.app",
+  "productName": "Laptop Management System",
+  "artifactName": "Laptop-Management-System-Setup-${version}.${ext}",
   "icon": "build/icon.ico",
   "directories": {
     "output": "dist-electron"
@@ -59,6 +59,6 @@
     "allowToChangeInstallationDirectory": true,
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
-    "shortcutName": "Tayyab Enterprises"
+    "shortcutName": "Laptop Management System"
   }
 }

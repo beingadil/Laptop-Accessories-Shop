@@ -34,7 +34,7 @@ Also: pnpm 11 ignores `node-linker` in `.npmrc` (settings live in `pnpm-workspac
 
 ## Verified install cycle (2026-11-16, Windows 11)
 
-Built `Tayyab Enterprises Management System Setup 0.1.0.exe` (~251 MB): unpacked binary launches and seeds `%APPDATA%/tayyab-enterprises-management-system/data/tayyab-enterprises.db`; silent install (`/S`) into `%LOCALAPPDATA%/Programs/...` works; installed app launches; silent uninstall removes the app folder **and leaves the userData database untouched**.
+Built `Laptop-Management-System-Setup-0.1.0.exe` (~251 MB): unpacked binary launches and seeds `%APPDATA%/tayyab-enterprises-management-system/data/tayyab-enterprises.db`; silent install (`/S`) into `%LOCALAPPDATA%/Programs/...` works; installed app launches; silent uninstall removes the app folder **and leaves the userData database untouched**.
 
 ## Gotchas
 

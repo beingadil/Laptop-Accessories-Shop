@@ -1,6 +1,6 @@
 {
-  "name": "tayyab-enterprises-management-system",
-  "version": "1.2.0",
+  "name": "laptop-management-system",
+  "version": "1.2.1",
   "private": true,
   "main": "electron/main.js",
   "scripts": {
@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "clean": "next clean",
     "postinstall": "prisma generate",
-    "test": "node --test --import ./tests/register-aliases.mjs lib/domain/calculations.test.ts lib/date-utils.test.ts lib/branding.test.ts tests/unit/auth-edge.test.ts tests/integration/sales.integration.test.ts",
+    "test": "node --test --import ./tests/register-aliases.mjs lib/domain/calculations.test.ts lib/date-utils.test.ts lib/branding.test.ts lib/domain/general-ledger.test.ts tests/unit/auth-edge.test.ts tests/integration/sales.integration.test.ts",
     "test:watch": "node --test --watch --import ./tests/register-aliases.mjs lib/domain/calculations.test.ts tests/unit/auth-edge.test.ts tests/integration/sales.integration.test.ts",
     "ci": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "electron:dev": "ELECTRON_DEV=1 electron .",

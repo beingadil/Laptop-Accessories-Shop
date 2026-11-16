@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(): Promise<Metadata> {
   const branding = await getShopBranding();
-  const title = `${branding.shopName} Management System`;
+  const title = 'Laptop Management System';
   const description = `Complete offline-capable laptop and accessories shop management software for ${branding.shopName}.`;
 
   return {

@@ -235,7 +235,7 @@ function createMainWindow() {
     height: 900,
     minWidth: 1180,
     minHeight: 740,
-    title: 'Tayyab Enterprises Management System',
+    title: 'Laptop Management System',
     backgroundColor: '#f8fafc',
     autoHideMenuBar: true,
     webPreferences: {

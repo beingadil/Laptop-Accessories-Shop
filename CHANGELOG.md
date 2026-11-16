@@ -3,6 +3,22 @@
 All notable changes to this project are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: [SemVer](https://semver.org/).
 
+
+## [1.2.1] - 2026-11-16 (tag `v1.2.1`)
+
+Global ledger + application rename — the installer and the app now install as **Laptop Management System**.
+
+### Changed
+- **Application renamed to "Laptop Management System"** — installer artifact (`Laptop-Management-System-Setup-x.y.z.exe`), window title, HTML title, error pages, shortcuts, health endpoint and backup validation messages all use the new name. Shop branding ("Tayyab Enterprises") is unchanged — invoices still carry the shop name.
+
+### Added
+- **General Ledger** (`/ledger`) — global double-entry accounts-payable & receivable statement:
+  - One **searchable account dropdown** — All Accounts, All Suppliers, All Customers, Walk-ins, and every saved supplier/customer.
+  - One combined **date-range picker** with presets (Today / Week / Month / 90 Days / All Time).
+  - Balance brought forward pinned to line 1; entries in strict chronological sequence; **one cumulative running balance down the page** that ties exactly to the Closing Balance row.
+  - **Export PDF** — complete A4 landscape statement (jsPDF + autoTable): shop header, account/period block, proper table, opening b/f row, Total Period Activity, Closing Balance, signature lines and page-numbered footer. Plus Excel export and print preview.
+  - Engine `lib/domain/general-ledger.ts` (pure, unit-tested) + `GET /api/ledger`.
+
 ## [1.2.0] - 2026-11-16 (tag `v1.2.0`)
 
 In-app update flow + full data wipe.
@@ -99,8 +115,12 @@ First production release. All Google/AI-Studio dependencies removed; the app is 
 - No code signing (see SECURITY.md). No runtime migration runner — v1.x schema changes are additive-only; startup migration hook planned (DATABASE.md).
 - `admin`/`admin123` default credentials on fresh installs — change immediately.
 
-## [Unreleased]
+## [0.1.0] - 2026-11 (inherited baseline)
 
+- Initial AI-Studio-generated Next.js 15 app: laptop/accessories inventory with serialized tracking, sales/purchases/returns/warranties/expenses/reports, SQLite + Prisma, JWT admin
+  session, Excel/PDF export, Electron wrapper with embedded Next standalone server, NSIS installer config, backup/restore.
+
+## [Archived development notes (pre-1.2.0)] - internal build log, retained for reference
 ### Fixed
 - "Application error: a client-side exception has occurred" — added `app/error.tsx`, `app/global-error.tsx` (styled, retry button) and `app/not-found.tsx`; any transient failure now renders a recoverable screen instead of the raw production error page.
 - Backup/restore hardened (restored DBs no longer risk silent data loss): VACUUM INTO rollback snapshot, checkpoint-busy abort, full schema gate (20 tables + required columns + integrity check) before touching the live DB, atomic temp-file rename swap, automatic rollback on failure, sign-out on restore, 413 pre-check, shared `lib/db-path.ts` so backup/restore operate on the exact file the app uses.
@@ -145,8 +165,3 @@ First production release. All Google/AI-Studio dependencies removed; the app is 
 ### Added
 - `docs/PROJECT_AUDIT.md`, `docs/ARCHITECTURE.md`, `docs/PERFORMANCE_AUDIT.md`, `docs/TECH_DEBT.md`, `docs/TESTING.md`, `ROADMAP.md`, `memory.md`.
 - `.npmrc` (`node-linker=hoisted`).
-
-## [0.1.0] - 2026-11 (inherited baseline)
-
-- Initial AI-Studio-generated Next.js 15 app: laptop/accessories inventory with serialized tracking, sales/purchases/returns/warranties/expenses/reports, SQLite + Prisma, JWT admin
-  session, Excel/PDF export, Electron wrapper with embedded Next standalone server, NSIS installer config, backup/restore.

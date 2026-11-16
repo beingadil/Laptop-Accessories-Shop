@@ -87,3 +87,6 @@ Desktop.ini
 /*.deb
 /*.rpm
 /*.snap
+
+# Wipe snapshots (pre-restore rollback artifacts)
+*.pre-wipe.bak

@@ -12,7 +12,7 @@ import { resolveSqliteDbPath } from '@/lib/db-path';
 // A backup larger than this is rejected (memory + disk exhaustion guard).
 const MAX_BACKUP_BYTES = 250 * 1024 * 1024; // 250 MB
 
-// Tables that MUST exist in a valid Tayyab Enterprises backup — a foreign or
+// Tables that MUST exist in a valid Laptop Management System backup — a foreign or
 // older-schema SQLite file fails here before we touch the live database.
 const REQUIRED_TABLES = [
   'AdminUser',
@@ -58,7 +58,7 @@ async function verifyBackupFile(dbPath: string): Promise<void> {
     const missing = REQUIRED_TABLES.filter((t) => !names.has(t));
     if (missing.length) {
       throw new BusinessRuleError(
-        `Not a Tayyab Enterprises backup (missing tables: ${missing.slice(0, 5).join(', ')}${missing.length > 5 ? '…' : ''}).`
+        `Not a Laptop Management System backup (missing tables: ${missing.slice(0, 5).join(', ')}${missing.length > 5 ? '…' : ''}).`
       );
     }
 

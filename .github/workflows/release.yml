@@ -72,7 +72,7 @@ jobs:
         with:
           name: ${{ github.ref_name }}
           files: |
-            dist-electron/Tayyab-Enterprises-Management-System-Setup-*.exe
-            dist-electron/Tayyab-Enterprises-Management-System-Setup-*.exe.blockmap
+            dist-electron/*.exe
+            dist-electron/*.exe.blockmap
             dist-electron/latest.yml
           generate_release_notes: true

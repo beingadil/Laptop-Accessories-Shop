@@ -29,6 +29,7 @@ import {
   ShieldCheck,
   FolderTree,
   LogOut,
+  BookOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -107,6 +108,14 @@ const MASTER_NAV_GROUPS: MasterNavGroup[] = [
     ],
   },
   {
+    id: 'ledger',
+    label: 'General Ledger',
+    icon: BookOpen,
+    items: [
+      { label: 'Supplier Ledger', href: '/ledger', matchPrefix: '/ledger' },
+    ],
+  },
+  {
     id: 'finance',
     label: 'Expenses & Reports',
     icon: BarChart3,
@@ -152,6 +161,7 @@ const QUICK_MODULE_ROUTES: Array<{ label: string; category: string; href: string
   { label: 'Process Exchange', category: 'Action', href: '/returns/exchange', keywords: 'replace swap laptop' },
   { label: 'Warranty Tracker', category: 'Module', href: '/warranty', keywords: 'warranty expiry checking' },
   { label: 'Business Reports', category: 'Module', href: '/reports', keywords: 'analytics profit loss valuation excel pdf' },
+  { label: 'General Ledger', category: 'Module', href: '/ledger', keywords: 'ledger supplier balance opening payable accounts book' },
   { label: 'Shop Settings & Backup', category: 'Module', href: '/settings?tab=shop', keywords: 'logo password backup restore' },
   { label: 'Application Updates', category: 'Module', href: '/settings?tab=updates', keywords: 'update upgrade version patch release' },
 ];
