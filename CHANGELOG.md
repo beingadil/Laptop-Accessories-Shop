@@ -3,6 +3,11 @@
 All notable changes to this project are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: [SemVer](https://semver.org/).
 
+## [1.1.1] - 2026-11-16 (tag `v1.1.1`)
+
+### Added
+- New Product form auto-generates SKU on mount (pattern `PRD-XXXXXX`, unambiguous alphabet: no 0/O, 1/I/L). Regenerate button available. SKU remains editable.
+
 ## [1.1.0] - 2026-11-16 (tag `v1.1.0`)
 
 Error recovery and feature-completeness release. Fresh installs start clean (zero demo data). Error pages are now styled and recoverable, Shop Expenses has full category management, every module has working Edit and Delete, and the product form no longer forces brand/model on products that don't have them (bags, cables, accessories). Build telemetry disabled for offline/low-connectivity machines.
