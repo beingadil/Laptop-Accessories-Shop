@@ -1,0 +1,8 @@
+{
+  "name": "Remix Tayyab Enterprises Management System",
+  "description": "Complete offline-capable laptop and accessories shop management system for Tayyab Enterprises.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.tayyabenterprises.management",
+  "productName": "Tayyab Enterprises Management System",
+  "directories": {
+    "output": "dist-electron"
+  },
+  "files": [
+    "electron/**/*"
+  ],
+  "extraResources": [
+    {
+      "from": ".next/standalone",
+      "to": "standalone",
+      "filter": ["**/*"]
+    },
+    {
+      "from": ".next/static",
+      "to": "standalone/.next/static",
+      "filter": ["**/*"]
+    },
+    {
+      "from": "public",
+      "to": "standalone/public",
+      "filter": ["**/*"]
+    },
+    {
+      "from": "prisma/dev.db",
+      "to": "prisma/dev.db"
+    }
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ]
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Tayyab Enterprises"
+  }
+}
