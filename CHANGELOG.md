@@ -3,6 +3,21 @@
 All notable changes to this project are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: [SemVer](https://semver.org/).
 
+## [1.0.1] - 2026-11-16
+
+Maintenance + security patch. Fixes the broken `Setup-1.0.0.exe` that could not start ("Timed out waiting for local application server to start").
+
+### Fixed
+- **Startup failure in the packaged app**: electron-builder hard-drops the root `node_modules` of the `extraResources` source, so `standalone/server.js` had no runtime dependencies and crashed with `Cannot find module 'next'`. The installer now ships `standalone/node_modules` (verified: server healthy in ~1.3 s after install).
+- Lockfile no longer ships a dev `.env` into the package (was present in Setup-1.0.0.exe via the standalone copy).
+
+### Security
+- `pnpm audit --prod --audit-level=high` now passes: 38 vulnerabilities (13 high, 2 critical) resolved via `jspdf@4.2.1`, `jspdf-autotable@5.0.9`, `zod@4.6.6`, and pnpm overrides (`postcss@8.5.18`, `deepmerge-ts@8.0.0`, `dompurify@3.4.17`). Remaining: 1 moderate (`uuid` via `exceljs`, unused code path).
+
+### Added
+- `startup.log` diagnostics in `%APPDATA%/tayyab-enterprises-management-system/logs/` (embedded-server stdout/stderr, spawn error/exit, DB path); the startup error dialog now points at it.
+- Fail-fast when the local server exits before becoming healthy (instead of a blind 30 s wait), and a 90 s health-check tolerance for first-launch antivirus scans.
+
 ## [1.0.0] - 2026-11-16
 
 First production release. All Google/AI-Studio dependencies removed; the app is fully offline.

@@ -25,7 +25,7 @@ Live phase tracker. Evidence or it isn't done.
 | 2026-11-16 | Real auth enforced; sign-out added; seed credentials documented (admin/admin123). |
 | 2026-11-16 | Test infrastructure from zero; 27 tests; service-level integration tests against temp SQLite. |
 | 2026-11-16 | electron + electron-builder + electron-updater added; NSIS installer verified end-to-end. |
-| 2026-11-16 | Version **1.0.0** set; `docs/` filled out (DATABASE, SECURITY, BUILD, RELEASE). |
+| 2026-11-16 | Version **1.0.0/1.0.1** set (1.0.1 = startup fix + audit); `docs/` filled out (DATABASE, SECURITY, BUILD, RELEASE). |
 
 ## Standing decisions
 
