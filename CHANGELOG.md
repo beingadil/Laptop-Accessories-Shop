@@ -3,9 +3,9 @@
 All notable changes to this project are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: [SemVer](https://semver.org/).
 
-## [1.0.1] - 2026-11-16
+## [1.0.1] - 2026-11-16 (tag `v1.0.1`)
 
-Maintenance + security patch. Fixes the broken `Setup-1.0.0.exe` that could not start ("Timed out waiting for local application server to start").
+Maintenance + security patch. Fixes the broken `Setup-1.0.0.exe` that could not start ("Timed out waiting for local application server to start"). Released on GitHub via Actions `release.yml`.
 
 ### Fixed
 - **Startup failure in the packaged app**: electron-builder hard-drops the root `node_modules` of the `extraResources` source, so `standalone/server.js` had no runtime dependencies and crashed with `Cannot find module 'next'`. The installer now ships `standalone/node_modules` (verified: server healthy in ~1.3 s after install).

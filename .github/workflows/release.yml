@@ -51,15 +51,17 @@ jobs:
       - name: Release gate — lint, typecheck, tests, build
         run: pnpm ci
 
-      - name: Build Windows installer and publish release
-        run: pnpm exec electron-builder --win --config electron-builder.json --publish always
+      - name: Build Windows installer
+        run: pnpm exec electron-builder --win --config electron-builder.json --publish never
 
-      - name: Upload installer as workflow artifact (backup)
-        if: always()
-        uses: actions/upload-artifact@v4
+      # electron-builder's own publisher was creating duplicate releases for the
+      # same tag and splitting the assets between them; publish once, here instead.
+      - name: Publish GitHub Release with all installer assets
+        uses: softprops/action-gh-release@v2
         with:
-          name: installer
-          path: |
-            dist-electron/*.exe
+          name: ${{ github.ref_name }}
+          files: |
+            dist-electron/Tayyab-Enterprises-Management-System-Setup-*.exe
+            dist-electron/Tayyab-Enterprises-Management-System-Setup-*.exe.blockmap
             dist-electron/latest.yml
-          retention-days: 30
+          generate_release_notes: true
