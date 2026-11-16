@@ -56,3 +56,10 @@ ode node_modules/electron/install.js.
 ## Resolved answers (user 2026-11-16)
 - Main repo = beingadil/Laptop-Accessories-Shop; every push lands there.
 - All Google deps must go (offline app) - done and verified in lockfile.
+
+## 2026-11-16 (icon)
+- Paid image model had no credits - icon instead drawn as SVG primitives (navy squircle + white laptop + optional TE mark), rasterized via locally-installed sharp (win32 x64 build present) to icon.png/icon-256.png/icon.ico (manual ICO container with embedded PNG). User asked to remove the TE monogram - done; mark is now a bare laptop on navy.
+- electron-builder.json: win.icon=build/icon.ico + top-level icon. NSIS build 1.0.0 succeeded after a transient EBUSY (Defender lock on fresh exe - just retry). latest.yml url now equals installer filename (artifactName slug) - updater will resolve it.
+- .gitignore: comprehensive secrets/build/test/OS coverage; build/ (icon) and prisma/dev.db remain tracked. .npmrc untracked (machine-local network tuning).
+- Windows Defender locked the freshly-built unsigned exe once; retry worked. Note for CI: windows-latest runners occasionally need retries too.
+

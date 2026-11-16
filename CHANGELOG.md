@@ -42,6 +42,8 @@ First production release. All Google/AI-Studio dependencies removed; the app is 
 ## [Unreleased]
 
 ### Added
+- Application icon (`build/icon.svg` → `icon.png`/`icon-256.png`/`icon.ico`), drawn as vector geometry and wired into electron-builder (installer, uninstaller, shortcut, exe).
+- Comprehensive `.gitignore`: all `.env*` variants, credential/key files, local machine config, build outputs, test temp DBs, OS/editor junk, root-level installer artifacts.
 - `docs/PROJECT_AUDIT.md`, `docs/ARCHITECTURE.md`, `docs/PERFORMANCE_AUDIT.md`, `docs/TECH_DEBT.md`, `docs/TESTING.md`, `ROADMAP.md`, `memory.md`, `.npmrc` (local, gitignored).
 
 ### Security

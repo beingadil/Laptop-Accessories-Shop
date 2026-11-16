@@ -3,6 +3,7 @@
   "appId": "com.tayyabenterprises.management",
   "productName": "Tayyab Enterprises Management System",
   "artifactName": "Tayyab-Enterprises-Management-System-Setup-${version}.${ext}",
+  "icon": "build/icon.ico",
   "directories": {
     "output": "dist-electron"
   },
@@ -36,7 +37,8 @@
         "target": "nsis",
         "arch": ["x64"]
       }
-    ]
+    ],
+    "icon": "build/icon.ico"
   },
   "publish": [
     {

@@ -1,15 +1,89 @@
+# ============================== Dependencies ==============================
 node_modules/
+.pnpm-store/
+
+# ============================== Build output ==============================
 .next/
+out/
+dist/
 dist-electron/
+build-installer*.log
+build-phase*.log
+build2.log
+build-1.0.0.log
+
+# electron-builder caches / artifacts
+.tools-cache/
+*.blockmap
+
+# ============================== Testing ==============================
 coverage/
-.DS_Store
-*.log
-*.tsbuildinfo
+.nyc_output/
+tests/integration/.tmp-integration.db
+tests/integration/*.tmp-*.db
+
+# ============================== Secrets & environment files ==============================
+# Ignore every environment file, everywhere, except the documented placeholder.
+.env
+.env.*
+.env.*.local
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+
+# Anything that smells like a secret or private key
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+*.keystore
+*.jks
+id_rsa
+id_ed25519
+*.secret
+.auth-secret
+**/.auth-secret
+
+# ============================== Local machine config (not portable) ==============================
+.npmrc
+
+# ============================== Databases (live data never committed) ==============================
 prisma/*.db-shm
 prisma/*.db-wal
-.env*
-!.env.example
+*.db-journal
 
+# ============================== Logs ==============================
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
-.npmrc
-tests/integration/.tmp-integration.db
+# ============================== OS & editors ==============================
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ============================== TypeScript / cache artifacts ==============================
+*.tsbuildinfo
+.turbo/
+.cache/
+
+# ============================== Installer / release artifacts (distributed, not committed) ==============================
+/*.exe
+/*.msi
+/*.dmg
+/*.pkg
+/*.AppImage
+/*.deb
+/*.rpm
+/*.snap

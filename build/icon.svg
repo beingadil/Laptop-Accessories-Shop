@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1F3A8C"/>
+      <stop offset="0.55" stop-color="#16294F"/>
+      <stop offset="1" stop-color="#0B1526"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.42" r="0.75">
+      <stop offset="0" stop-color="#2E4BA6" stop-opacity="0.9"/>
+      <stop offset="0.6" stop-color="#16294F" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Squircle tile -->
+  <rect x="40" y="40" width="944" height="944" rx="216" fill="url(#bg)"/>
+  <rect x="40" y="40" width="944" height="944" rx="216" fill="url(#glow)"/>
+
+  <!-- Laptop glyph (white, front view) -->
+  <rect x="258" y="262" width="508" height="356" rx="34"
+        fill="none" stroke="#FFFFFF" stroke-width="36"/>
+  <path d="M 196 688 H 828" stroke="#FFFFFF" stroke-width="36" stroke-linecap="round"/>
+  <rect x="196" y="688" width="632" height="54" rx="27" fill="#FFFFFF"/>
+  <rect x="452" y="688" width="120" height="20" rx="10" fill="#16294F"/>
+
+  <!-- Clean laptop glyph — no lettering -->
+</svg>
