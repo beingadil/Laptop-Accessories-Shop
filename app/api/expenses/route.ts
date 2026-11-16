@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth, handleApiError } from '@/lib/api-utils';
+import { requireAuth, handleApiError, parseDateParam } from '@/lib/api-utils';
 import { expenseSchema } from '@/lib/validation/schemas';
 import { parsePaginationParams } from '@/lib/format';
 import { recordAuditLog } from '@/lib/services/audit';
@@ -32,8 +32,8 @@ export async function GET(req: NextRequest) {
       ...(dateFrom || dateTo
         ? {
             expenseDate: {
-              ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
-              ...(dateTo ? { lte: new Date(`${dateTo}T23:59:59.999Z`) } : {}),
+              ...(dateFrom ? { gte: parseDateParam(dateFrom, 'dateFrom') } : {}),
+              ...(dateTo ? { lte: parseDateParam(dateTo, 'dateTo', true) } : {}),
             },
           }
         : {}),

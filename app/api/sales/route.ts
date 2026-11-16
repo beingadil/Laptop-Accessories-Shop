@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth, handleApiError } from '@/lib/api-utils';
+import { requireAuth, handleApiError, parseDateParam, parseEnumParam } from '@/lib/api-utils';
 import { saleSchema } from '@/lib/validation/schemas';
 import { parsePaginationParams } from '@/lib/format';
 import { createSale } from '@/lib/services/sales';
@@ -14,14 +14,19 @@ export async function GET(req: NextRequest) {
     const url = req.nextUrl;
     const { page, pageSize, search, sortBy, sortOrder } = parsePaginationParams(url.searchParams);
     const customerId = url.searchParams.get('customerId') || '';
-    const status = url.searchParams.get('status') || '';
+    const status =
+      parseEnumParam(
+        url.searchParams.get('status') || '',
+        ['COMPLETED', 'PARTIAL_RETURN', 'RETURNED', 'CANCELLED'] as const,
+        'status'
+      ) ?? '';
     const dateFrom = url.searchParams.get('dateFrom') || '';
     const dateTo = url.searchParams.get('dateTo') || '';
     const includeCancelled = url.searchParams.get('includeCancelled') === '1';
 
     const where: Prisma.SaleWhereInput = {
       ...(!includeCancelled && !status ? { status: { not: 'CANCELLED' } } : {}),
-      ...(status ? { status: status as Prisma.EnumSaleStatusFilter['equals'] } : {}),
+      ...(status ? { status } : {}),
       ...(customerId ? { customerId } : {}),
       ...(search
         ? {
@@ -37,8 +42,8 @@ export async function GET(req: NextRequest) {
       ...(dateFrom || dateTo
         ? {
             saleDate: {
-              ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
-              ...(dateTo ? { lte: new Date(`${dateTo}T23:59:59.999Z`) } : {}),
+              ...(dateFrom ? { gte: parseDateParam(dateFrom, 'dateFrom') } : {}),
+              ...(dateTo ? { lte: parseDateParam(dateTo, 'dateTo', true) } : {}),
             },
           }
         : {}),

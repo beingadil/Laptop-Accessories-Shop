@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth, handleApiError } from '@/lib/api-utils';
+import { requireAuth, handleApiError, parseDateParam } from '@/lib/api-utils';
 import { parsePaginationParams } from '@/lib/format';
 import { calculateNetProfit } from '@/lib/domain/calculations';
 import type { Prisma } from '@prisma/client';
@@ -20,8 +20,8 @@ export async function GET(req: NextRequest) {
     const dateRange =
       dateFrom || dateTo
         ? {
-            ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
-            ...(dateTo ? { lte: new Date(`${dateTo}T23:59:59.999Z`) } : {}),
+            ...(dateFrom ? { gte: parseDateParam(dateFrom, 'dateFrom') } : {}),
+            ...(dateTo ? { lte: parseDateParam(dateTo, 'dateTo', true) } : {}),
           }
         : undefined;
 

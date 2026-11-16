@@ -7,11 +7,36 @@ import {
 } from '@/lib/domain/calculations';
 import { recordAuditLog } from '@/lib/services/audit';
 import { syncSerializedProductStock } from '@/lib/services/inventory';
+import { withTransactionRetry } from '@/lib/services/tx-retry';
 import type { Prisma, ReturnReason, RestockStatus } from '@prisma/client';
+
+// A refund can never exceed what the customer actually paid for the units being
+// returned (line total, prorated by quantity). Prevents cash/books destruction.
+function assertRefundWithinPaidAmount(
+  refundAmount: number,
+  lineTotalAmount: number,
+  lineQuantity: number,
+  returnQuantity: number,
+  productName: string
+): void {
+  const perUnitPaid = lineQuantity > 0 ? lineTotalAmount / lineQuantity : 0;
+  const maxRefund = perUnitPaid * returnQuantity;
+  if (refundAmount > maxRefund + 0.005) {
+    throw new BusinessRuleError(
+      `Refund for ${productName} cannot exceed Rs ${maxRefund.toFixed(2)} paid for ${returnQuantity} unit(s).`
+    );
+  }
+}
 
 async function generateReturnNumber(tx: Prisma.TransactionClient, prefix: string): Promise<string> {
   const count = await tx.return.count();
-  let seq = 1001 + count;
+  const last = await tx.return.findFirst({
+    where: { returnNumber: { startsWith: prefix } },
+    orderBy: { returnNumber: 'desc' },
+    select: { returnNumber: true },
+  });
+  const lastSeq = last ? parseInt(last.returnNumber.slice(prefix.length), 10) : NaN;
+  let seq = Number.isFinite(lastSeq) ? Math.max(1001 + count, lastSeq + 1) : 1001 + count;
   while (true) {
     const candidate = `${prefix}${seq}`;
     const exists = await tx.return.findUnique({ where: { returnNumber: candidate }, select: { id: true } });
@@ -36,7 +61,8 @@ export async function createReturn(
   },
   adminUserId: string
 ) {
-  return prisma.$transaction(async (tx) => {
+  return withTransactionRetry(() =>
+    prisma.$transaction(async (tx) => {
     const sale = await tx.sale.findUnique({
       where: { id: input.originalSaleId },
       include: {
@@ -49,6 +75,9 @@ export async function createReturn(
     }
 
     const returnDate = new Date(input.returnDate);
+    if (Number.isNaN(returnDate.getTime())) {
+      throw new BusinessRuleError('Invalid return date.');
+    }
     const saleItemMap = new Map(sale.items.map((si) => [si.id, si]));
 
     let totalRefund = 0;
@@ -78,6 +107,13 @@ export async function createReturn(
           `Cannot return ${reqItem.quantity} of ${si.product.name}; only ${remainingReturnable} left returnable.`
         );
       }
+      assertRefundWithinPaidAmount(
+        reqItem.refundAmount,
+        si.totalAmount,
+        si.quantity,
+        reqItem.quantity,
+        si.product.name
+      );
 
       const costAmount = si.unitCost * reqItem.quantity;
       const isRestocked = reqItem.restockStatus === 'RESTOCKED';
@@ -222,7 +258,7 @@ export async function createReturn(
     });
 
     return returnRecord;
-  });
+  }));
 }
 
 export async function createExchange(
@@ -247,7 +283,8 @@ export async function createExchange(
   },
   adminUserId: string
 ) {
-  return prisma.$transaction(async (tx) => {
+  return withTransactionRetry(() =>
+    prisma.$transaction(async (tx) => {
     const sale = await tx.sale.findUnique({
       where: { id: input.originalSaleId },
       include: { items: { include: { product: true, serializedItem: true } } },
@@ -258,6 +295,9 @@ export async function createExchange(
     }
 
     const returnDate = new Date(input.returnDate);
+    if (Number.isNaN(returnDate.getTime())) {
+      throw new BusinessRuleError('Invalid return date.');
+    }
     const saleItemMap = new Map(sale.items.map((si) => [si.id, si]));
 
     let returnedValue = 0;
@@ -283,6 +323,13 @@ export async function createExchange(
       if (reqRet.quantity > remaining) {
         throw new BusinessRuleError(`Cannot return more than ${remaining} of ${si.product.name}.`);
       }
+      assertRefundWithinPaidAmount(
+        reqRet.refundAmount,
+        si.totalAmount,
+        si.quantity,
+        reqRet.quantity,
+        si.product.name
+      );
 
       const costAmount = si.unitCost * reqRet.quantity;
       returnedValue += reqRet.refundAmount;
@@ -555,5 +602,5 @@ export async function createExchange(
     });
 
     return exchangeRecord;
-  });
+  }));
 }

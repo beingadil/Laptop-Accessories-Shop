@@ -13,6 +13,19 @@ const nextConfig: NextConfig = {
   // (A package.json in the user home folder otherwise makes Next trace from the home dir.)
   outputFileTracingRoot: path.resolve(process.cwd()),
   output: 'standalone',
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'X-DNS-Prefetch-Control', value: 'off' },
+        ],
+      },
+    ];
+  },
   experimental: {
     optimizePackageImports: ['lucide-react', 'recharts'],
   },

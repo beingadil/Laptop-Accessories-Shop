@@ -7,6 +7,7 @@ import {
 } from '@/lib/domain/calculations';
 import { recordAuditLog } from '@/lib/services/audit';
 import { syncSerializedProductStock } from '@/lib/services/inventory';
+import { withTransactionRetry } from '@/lib/services/tx-retry';
 import type { Prisma } from '@prisma/client';
 
 export interface SaleItemInput {
@@ -34,7 +35,13 @@ async function generateUniqueInvoiceNumber(tx: Prisma.TransactionClient): Promis
   const settings = await tx.shopSettings.findUnique({ where: { id: 'default' } });
   const prefix = settings?.invoicePrefix || 'TE-INV-';
   const count = await tx.sale.count();
-  let seq = 1001 + count;
+  const last = await tx.sale.findFirst({
+    where: { invoiceNumber: { startsWith: prefix } },
+    orderBy: { invoiceNumber: 'desc' },
+    select: { invoiceNumber: true },
+  });
+  const lastSeq = last ? parseInt(last.invoiceNumber.slice(prefix.length), 10) : NaN;
+  let seq = Number.isFinite(lastSeq) ? Math.max(1001 + count, lastSeq + 1) : 1001 + count;
   while (true) {
     const candidate = `${prefix}${seq}`;
     const exists = await tx.sale.findUnique({
@@ -47,7 +54,8 @@ async function generateUniqueInvoiceNumber(tx: Prisma.TransactionClient): Promis
 }
 
 export async function createSale(input: SalePayload, adminUserId: string) {
-  return prisma.$transaction(async (tx) => {
+  return withTransactionRetry(() =>
+    prisma.$transaction(async (tx) => {
     const saleDate = new Date(input.saleDate);
     if (Number.isNaN(saleDate.getTime())) {
       throw new BusinessRuleError('Invalid sale date.');
@@ -185,25 +193,39 @@ export async function createSale(input: SalePayload, adminUserId: string) {
         },
       });
 
-      const previousStock = product.currentStock;
-      const nextStock = previousStock - item.quantity;
-      if (nextStock < 0) {
-        throw new BusinessRuleError(`Stock cannot become negative for ${product.name}.`);
-      }
+      let linePreviousStock = product.currentStock;
 
       if (product.inventoryType === 'SERIALIZED' && item.serializedItemId) {
-        await tx.serializedInventoryItem.update({
-          where: { id: item.serializedItemId },
+        // Atomic claim — fails if a concurrent sale already took this unit.
+        const claimed = await tx.serializedInventoryItem.updateMany({
+          where: { id: item.serializedItemId, stockStatus: 'IN_STOCK' },
           data: { stockStatus: 'SOLD' },
         });
+        if (claimed.count === 0) {
+          throw new BusinessRuleError(
+            `Serial number ${serialNumber} is no longer available. It may have just been sold.`
+          );
+        }
         const synced = await syncSerializedProductStock(tx, product.id);
         product.currentStock = synced;
+        linePreviousStock = synced + 1;
       } else {
-        await tx.product.update({
-          where: { id: product.id },
-          data: { currentStock: nextStock },
+        // Atomic guarded decrement — cannot drive stock below zero.
+        const decremented = await tx.product.updateMany({
+          where: { id: product.id, currentStock: { gte: item.quantity } },
+          data: { currentStock: { decrement: item.quantity } },
         });
-        product.currentStock = nextStock;
+        if (decremented.count === 0) {
+          throw new BusinessRuleError(
+            `Insufficient stock for ${product.name}. Available: ${product.currentStock}, requested: ${item.quantity}.`
+          );
+        }
+        const fresh = await tx.product.findUnique({
+          where: { id: product.id },
+          select: { currentStock: true },
+        });
+        product.currentStock = fresh?.currentStock ?? linePreviousStock - item.quantity;
+        linePreviousStock = product.currentStock + item.quantity;
       }
 
       await tx.stockMovement.create({
@@ -214,7 +236,7 @@ export async function createSale(input: SalePayload, adminUserId: string) {
           quantity: item.quantity,
           referenceType: 'SALE',
           referenceId: sale.id,
-          previousStock,
+          previousStock: linePreviousStock,
           newStock: product.currentStock,
           reason: serialNumber ? `Sale ${invoiceNumber} (SN: ${serialNumber})` : `Sale ${invoiceNumber}`,
           createdAt: saleDate,
@@ -254,7 +276,7 @@ export async function createSale(input: SalePayload, adminUserId: string) {
     });
 
     return sale;
-  });
+  }));
 }
 
 async function reverseSaleEffects(tx: Prisma.TransactionClient, saleId: string) {
@@ -300,11 +322,15 @@ async function reverseSaleEffects(tx: Prisma.TransactionClient, saleId: string) 
         },
       });
     } else {
-      const nextStock = prevStock + item.quantity;
       await tx.product.update({
         where: { id: freshProduct.id },
-        data: { currentStock: nextStock },
+        data: { currentStock: { increment: item.quantity } },
       });
+      const restocked = await tx.product.findUnique({
+        where: { id: freshProduct.id },
+        select: { currentStock: true },
+      });
+      const nextStock = restocked?.currentStock ?? prevStock + item.quantity;
       await tx.stockMovement.create({
         data: {
           productId: freshProduct.id,
@@ -332,6 +358,9 @@ export async function updateSale(id: string, input: SalePayload, adminUserId: st
   return prisma.$transaction(async (tx) => {
     const existing = await reverseSaleEffects(tx, id);
     const saleDate = new Date(input.saleDate);
+    if (Number.isNaN(saleDate.getTime())) {
+      throw new BusinessRuleError('Invalid sale date.');
+    }
 
     // Delete old warranties & sale items so new ones can be cleanly created
     await tx.warranty.deleteMany({ where: { saleId: id } });
@@ -433,20 +462,37 @@ export async function updateSale(id: string, input: SalePayload, adminUserId: st
         },
       });
 
-      const previousStock = product.currentStock;
+      let linePreviousStock = product.currentStock;
       if (product.inventoryType === 'SERIALIZED' && item.serializedItemId) {
-        await tx.serializedInventoryItem.update({
-          where: { id: item.serializedItemId },
+        // Atomic claim — fails if a concurrent sale already took this unit.
+        const claimed = await tx.serializedInventoryItem.updateMany({
+          where: { id: item.serializedItemId, stockStatus: 'IN_STOCK' },
           data: { stockStatus: 'SOLD' },
         });
+        if (claimed.count === 0) {
+          throw new BusinessRuleError(
+            `Serial number ${serialNumber} is no longer available. It may have just been sold.`
+          );
+        }
         product.currentStock = await syncSerializedProductStock(tx, product.id);
+        linePreviousStock = product.currentStock + 1;
       } else {
-        const nextStock = previousStock - item.quantity;
-        await tx.product.update({
-          where: { id: product.id },
-          data: { currentStock: nextStock },
+        // Atomic guarded decrement — cannot drive stock below zero.
+        const decremented = await tx.product.updateMany({
+          where: { id: product.id, currentStock: { gte: item.quantity } },
+          data: { currentStock: { decrement: item.quantity } },
         });
-        product.currentStock = nextStock;
+        if (decremented.count === 0) {
+          throw new BusinessRuleError(
+            `Insufficient stock for ${product.name}. Available: ${product.currentStock}, requested: ${item.quantity}.`
+          );
+        }
+        const fresh = await tx.product.findUnique({
+          where: { id: product.id },
+          select: { currentStock: true },
+        });
+        product.currentStock = fresh?.currentStock ?? linePreviousStock - item.quantity;
+        linePreviousStock = product.currentStock + item.quantity;
       }
 
       await tx.stockMovement.create({
@@ -457,7 +503,7 @@ export async function updateSale(id: string, input: SalePayload, adminUserId: st
           quantity: item.quantity,
           referenceType: 'SALE',
           referenceId: id,
-          previousStock,
+          previousStock: linePreviousStock,
           newStock: product.currentStock,
           reason: serialNumber
             ? `Edited Sale ${updatedSale.invoiceNumber} (SN: ${serialNumber})`

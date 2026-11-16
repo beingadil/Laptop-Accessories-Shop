@@ -11,11 +11,11 @@ Severity: 🔴 release-blocker · 🟠 high · 🟡 medium · ⚪ low
 | A2 | 🟠 PARTIAL | Fresh install still seeds `admin`/`admin123`; now documented + verified present in committed `dev.db`; forced password change on first login NOT implemented yet | `lib/database/seed.ts:41-50` |
 | A3 | 🔴 ✅ FIXED 2026-11-16 | Hardcoded fallback secret removed for production (fail-fast AUTH_SECRET ≥32 chars; dev-only fallback) | `lib/auth-edge.ts` |
 | A4 | 🔴 ✅ FIXED 2026-11-16 | Restore: size cap 250 MB (413), magic bytes, core-table structural check, WAL checkpoint before snapshot, `quick_check` + smoke counts, **auto-rollback** to `.pre-restore.bak` on integrity failure | `app/api/backup/route.ts` |
-| A5 | 🟠 | Refund amounts uncapped vs line totals (money destruction) | `lib/validation/schemas.ts:139`, `lib/services/returns.ts:82-118,226,559` |
-| A6 | 🟠 | Zero rate-limit/brute-force protection on login & password change | `app/api/auth/login/route.ts:8-49`, `app/api/settings/password/route.ts:7-51` |
-| A7 | 🟠 | Unbounded payloads: `logoDataUrl` no max; `reports?export=1` unbounded | `lib/validation/schemas.ts:171`, `app/api/reports/route.ts:*` |
-| A8 | 🟡 | No security headers / CSP in `next.config.ts`; cookie `sameSite:'none'` in https context defeats CSRF | `next.config.ts`, `lib/auth.ts:47-57` |
-| A9 | 🟡 | Mass-assignment latent: zod strips unknown keys but nothing uses `.strict()` — one schema edit = new writable field | `lib/validation/schemas.ts` (no `.strict()`) |
+| A5 | 🟠 ✅ FIXED 2026-11-16 | Refund capped at prorated line total paid (`assertRefundWithinPaidAmount`) in return + exchange paths | `lib/services/returns.ts` |
+| A6 | 🟠 ✅ FIXED 2026-11-16 (login/password throttle) | 5 attempts / 5 min fixed-window limiter on `/api/auth/login` and `/api/settings/password` (429 + Retry-After); timing oracle closed earlier; audit-logging of logins still pending | `lib/rate-limit.ts`, both routes |
+| A7 | 🟠 ✅ FIXED 2026-11-16 | `logoDataUrl` capped at ~1.4 MB (schema max); `reports?export=1` still unbounded (flag remains an intentional full-export path — see D9) | `lib/validation/schemas.ts` |
+| A8 | 🟡 ✅ FIXED 2026-11-16 | Security headers: nosniff, SAMEORIGIN frame, no-referrer, DNS-prefetch off (CSP deferred: needs nonced inline script strategy) | `next.config.ts` |
+| A9 | 🟡 | Mass-assignment latent: zod strips unknown keys but nothing uses `.strict()` — one schema edit = new writable field | `lib/validation/schemas.ts` (no `.strict()`) — consciously deferred (risk of breaking existing forms); see memory.md |
 | A10 | 🟠 ✅ FIXED 2026-11-16 | Login timing oracle closed (dummy bcrypt hash for unknown users) | `app/api/auth/login/route.ts` |
 | A11 | ⚪ | Branding endpoint requires auth now (middleware) — over-disclosure resolved | `middleware.ts` |
 
@@ -23,16 +23,16 @@ Severity: 🔴 release-blocker · 🟠 high · 🟡 medium · ⚪ low
 
 | # | Sev | Item | Evidence |
 |---|---|---|---|
-| B1 | 🔴 | Oversell / lost update: absolute `currentStock` write from deferred snapshot (sale, update, purchase) | `lib/services/sales.ts:188-207,436-450`, `lib/services/purchases.ts:163-221` |
-| B2 | 🔴 | Double-sell of last serialized unit: no conditional `WHERE stockStatus='IN_STOCK'` on update | `lib/services/sales.ts:112,195-198` |
-| B3 | 🟠 | Return over-return race: both concurrent returns pass `quantity ≤ remaining` check then both increment | `lib/services/returns.ts:75-80,137,414` |
-| B4 | 🟠 | Invoice/PO/return numbering count-based → collisions abort transactions (P2002 → 409 on legit sale) | `lib/services/sales.ts:33-47`, `purchases.ts:59-73`, `returns.ts:12-21` |
+| B1 | 🔴 ✅ FIXED 2026-11-16 | Atomic guarded decrements (`updateMany … currentStock >= qty`) in sales create/update + purchase reversals | `lib/services/sales.ts`, `purchases.ts` |
+| B2 | 🔴 ✅ FIXED 2026-11-16 | Atomic serial claim (`updateMany stockStatus='IN_STOCK'`) — double-sell rejected 400 | `lib/services/sales.ts` |
+| B3 | 🟠 | Over-return race: guarded partially by interactive-tx retry; full fix = conditional increment (`updateMany returnedQuantity+qty<=quantity`) — pending | `lib/services/returns.ts` |
+| B4 | 🟠 ✅ FIXED 2026-11-16 | Numbering probes MAX(docNo)+1 (not count) + `withTransactionRetry` on P2002 (sales/purchases/returns) | `lib/services/tx-retry.ts`, services |
 | B5 | 🟠 | Exchange replacement warranty bound to first original `saleItemId`, hard-coded 1 month | `lib/services/returns.ts:526-541` |
 | B6 | 🟡 | `ADJUSTMENT_OUT` collapses into DAMAGED serial status | `lib/services/inventory.ts:229-234` |
 | B7 | 🟡 | `updatePurchase` drops `sellingPrice`; per-serial movement stock numbers identical/wrong; purchase reversal deletes serial history | `purchases.ts:171-219,462-471,190-199,280-291,294-304` |
-| B8 | 🟡 | NaN dates reach writes in most update paths (only creates guard) | `sales.ts:334`, `purchases.ts:349`, `returns.ts:51,260`, `supplier-payments/*`, `expenses/*` |
-| B9 | 🟡 | Unvalidated enum strings → Prisma throws → 500 (should be 400) | `purchases/route.ts:22`, `sales/route.ts:24`, `inventory/movements/route.ts:29`, `inventory/route.ts:31` |
-| B10 | 🟡 | Timezone-naive `YYYY-MM-DD` filters interpreted as UTC (off by +5h PKT) | `expenses/purchases/sales/reports/returns/supplier-payments routes` |
+| B8 | 🟡 ✅ FIXED 2026-11-16 | All 7 date body fields validated parseable via `dateField` refinement (400 not 500); NaN guard added to `updateSale` | `lib/validation/schemas.ts`, `lib/services/sales.ts` |
+| B9 | 🟡 ✅ FIXED 2026-11-16 | Enum query params validated against allow-lists via `parseEnumParam` → 400 (was: Prisma threw → 500) | `lib/api-utils.ts`, 4 routes |
+| B10 | 🟡 ✅ FIXED 2026-11-16 | `dateFrom`/`dateTo` filters parsed as LOCAL calendar dates (was UTC → off-by-one day in PKT) via `parseDateParam` | `lib/api-utils.ts`, 6 routes |
 | B11 | ⚪ | Money as `Float` everywhere; rounding only in one cost path | `prisma/schema.prisma` (all monetary fields), `lib/domain/calculations.ts:28` |
 | B12 | 🟡 | Supplier ledger clamps negative balances (overpayment hidden) | `app/api/suppliers/[id]/route.ts:100` |
 | B13 | 🟡 | Reports: `totalSpent` sums current page only | `app/api/reports/route.ts:290` |
@@ -81,9 +81,9 @@ Severity: 🔴 release-blocker · 🟠 high · 🟡 medium · ⚪ low
 ## Fix order (drives Phase 1→3)
 
 1. ~~A1–A4 (auth, seed creds, secret, restore hardening)~~ **A1, A3, A4, A10 done 2026-11-16** — A2 (forced password change) pending
-2. B1, B2, B4 (atomic stock + numbering)
-3. A5, B3 (caps, over-return)
-4. A6, A7, A8 (rate limit, payload caps, headers)
-5. A9, B8, B9, B10 (schema strictness, date/enum validation, TZ)
+2. ~~B1, B2, B4 (atomic stock + numbering)~~ **done 2026-11-16** — B3 (over-return conditional increment) pending
+3. ~~A5, B3 (caps, over-return)~~ **A5 done** — B3 pending
+4. ~~A6, A7, A8 (rate limit, payload caps, headers)~~ **done 2026-11-16** — login/password audit-logging still pending
+5. ~~A9, B8, B9, B10 (schema strictness, date/enum validation, TZ)~~ **B8, B9, B10 done; A9 consciously deferred** (real-form breakage risk)
 6. D1–D6 (perf quick wins)
 7. C1–C9, D7–D10 (structural, incremental, no behavior change)

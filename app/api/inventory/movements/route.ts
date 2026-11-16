@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth, handleApiError } from '@/lib/api-utils';
+import { requireAuth, handleApiError, parseEnumParam } from '@/lib/api-utils';
 import { parsePaginationParams } from '@/lib/format';
 import type { Prisma } from '@prisma/client';
 
@@ -11,7 +11,16 @@ export async function GET(req: NextRequest) {
 
     const url = req.nextUrl;
     const { page, pageSize, search } = parsePaginationParams(url.searchParams);
-    const movementType = url.searchParams.get('movementType') || '';
+    const movementType =
+      parseEnumParam(
+        url.searchParams.get('movementType') || '',
+        [
+          'OPENING_STOCK', 'PURCHASE', 'SALE', 'SALE_RETURN', 'PURCHASE_RETURN',
+          'EXCHANGE_IN', 'EXCHANGE_OUT', 'ADJUSTMENT_IN', 'ADJUSTMENT_OUT',
+          'DAMAGED', 'LOST', 'REVERSAL',
+        ] as const,
+        'movementType'
+      ) ?? '';
     const productId = url.searchParams.get('productId') || '';
 
     const where: Prisma.StockMovementWhereInput = {
@@ -25,9 +34,7 @@ export async function GET(req: NextRequest) {
             ],
           }
         : {}),
-      ...(movementType
-        ? { movementType: movementType as Prisma.EnumStockMovementTypeFilter['equals'] }
-        : {}),
+      ...(movementType ? { movementType } : {}),
       ...(productId ? { productId } : {}),
     };
 

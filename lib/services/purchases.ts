@@ -7,6 +7,7 @@ import {
 } from '@/lib/domain/calculations';
 import { recordAuditLog } from '@/lib/services/audit';
 import { syncSerializedProductStock } from '@/lib/services/inventory';
+import { withTransactionRetry } from '@/lib/services/tx-retry';
 import type { ItemCondition, Prisma } from '@prisma/client';
 
 export interface PurchaseItemInput {
@@ -60,7 +61,13 @@ async function generateUniquePurchaseNumber(tx: Prisma.TransactionClient): Promi
   const settings = await tx.shopSettings.findUnique({ where: { id: 'default' } });
   const prefix = settings?.purchasePrefix || 'TE-PUR-';
   const count = await tx.purchase.count();
-  let seq = 1001 + count;
+  const last = await tx.purchase.findFirst({
+    where: { purchaseNumber: { startsWith: prefix } },
+    orderBy: { purchaseNumber: 'desc' },
+    select: { purchaseNumber: true },
+  });
+  const lastSeq = last ? parseInt(last.purchaseNumber.slice(prefix.length), 10) : NaN;
+  let seq = Number.isFinite(lastSeq) ? Math.max(1001 + count, lastSeq + 1) : 1001 + count;
   while (true) {
     const candidate = `${prefix}${seq}`;
     const exists = await tx.purchase.findUnique({
@@ -73,7 +80,8 @@ async function generateUniquePurchaseNumber(tx: Prisma.TransactionClient): Promi
 }
 
 export async function createPurchase(input: PurchasePayload, adminUserId: string) {
-  return prisma.$transaction(async (tx) => {
+  return withTransactionRetry(() =>
+    prisma.$transaction(async (tx) => {
     const supplier = await tx.supplier.findUnique({ where: { id: input.supplierId } });
     if (!supplier) {
       throw new BusinessRuleError('Selected supplier does not exist.', 404);
@@ -169,7 +177,9 @@ export async function createPurchase(input: PurchasePayload, adminUserId: string
       );
 
       if (product.inventoryType === 'SERIALIZED') {
+        let runningStock = previousStock;
         for (const sn of serials) {
+          runningStock += 1;
           const createdSerial = await tx.serializedInventoryItem.create({
             data: {
               productId: product.id,
@@ -190,8 +200,8 @@ export async function createPurchase(input: PurchasePayload, adminUserId: string
               quantity: 1,
               referenceType: 'PURCHASE',
               referenceId: purchase.id,
-              previousStock,
-              newStock: previousStock + serials.length,
+              previousStock: runningStock - 1,
+              newStock: runningStock,
               reason: `Purchase ${purchaseNumber} (SN: ${sn})`,
               createdAt: purchaseDate,
             },
@@ -212,7 +222,7 @@ export async function createPurchase(input: PurchasePayload, adminUserId: string
         await tx.product.update({
           where: { id: product.id },
           data: {
-            currentStock: newStock,
+            currentStock: { increment: item.quantity },
             purchasePrice: newAvgCost,
             ...(item.sellingPrice !== undefined ? { sellingPrice: item.sellingPrice } : {}),
           },
@@ -246,7 +256,7 @@ export async function createPurchase(input: PurchasePayload, adminUserId: string
     });
 
     return purchase;
-  });
+  }));
 }
 
 async function reversePurchaseStock(tx: Prisma.TransactionClient, purchaseId: string, purchaseNumber: string) {
@@ -308,16 +318,16 @@ async function reversePurchaseStock(tx: Prisma.TransactionClient, purchaseId: st
     if (item.product.inventoryType === 'QUANTITY') {
       const freshProduct = await tx.product.findUnique({ where: { id: item.productId } });
       if (!freshProduct) continue;
-      if (freshProduct.currentStock < item.quantity) {
+      const decremented = await tx.product.updateMany({
+        where: { id: freshProduct.id, currentStock: { gte: item.quantity } },
+        data: { currentStock: { decrement: item.quantity } },
+      });
+      if (decremented.count === 0) {
         throw new BusinessRuleError(
           `Cannot modify or delete purchase ${purchaseNumber} because ${item.quantity} units of ${freshProduct.name} are needed in stock to reverse it (current stock: ${freshProduct.currentStock}).`
         );
       }
       const nextStock = freshProduct.currentStock - item.quantity;
-      await tx.product.update({
-        where: { id: freshProduct.id },
-        data: { currentStock: nextStock },
-      });
       await tx.stockMovement.create({
         data: {
           productId: freshProduct.id,
@@ -467,7 +477,7 @@ export async function updatePurchase(id: string, input: PurchasePayload, adminUs
         const nextStock = previousStock + item.quantity;
         await tx.product.update({
           where: { id: product.id },
-          data: { currentStock: nextStock, purchasePrice: newAvgCost },
+          data: { currentStock: { increment: item.quantity }, purchasePrice: newAvgCost },
         });
         product.currentStock = nextStock;
         await tx.stockMovement.create({

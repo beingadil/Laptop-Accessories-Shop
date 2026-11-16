@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth, handleApiError } from '@/lib/api-utils';
+import { requireAuth, handleApiError, parseDateParam, parseEnumParam } from '@/lib/api-utils';
 import { purchaseSchema } from '@/lib/validation/schemas';
 import { parsePaginationParams } from '@/lib/format';
 import { createPurchase } from '@/lib/services/purchases';
@@ -16,10 +16,14 @@ export async function GET(req: NextRequest) {
     const supplierId = url.searchParams.get('supplierId') || '';
     const dateFrom = url.searchParams.get('dateFrom') || '';
     const dateTo = url.searchParams.get('dateTo') || '';
-    const status = url.searchParams.get('status') || 'COMPLETED';
+    const statusRaw = url.searchParams.get('status') || 'COMPLETED';
+    const status =
+      statusRaw === 'ALL'
+        ? 'ALL'
+        : parseEnumParam(statusRaw, ['COMPLETED', 'CANCELLED'] as const, 'status');
 
     const where: Prisma.PurchaseWhereInput = {
-      ...(status !== 'ALL' ? { status: status as 'COMPLETED' | 'CANCELLED' } : {}),
+      ...(status && status !== 'ALL' ? { status } : {}),
       ...(supplierId ? { supplierId } : {}),
       ...(search
         ? {
@@ -33,8 +37,8 @@ export async function GET(req: NextRequest) {
       ...(dateFrom || dateTo
         ? {
             purchaseDate: {
-              ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
-              ...(dateTo ? { lte: new Date(`${dateTo}T23:59:59.999Z`) } : {}),
+              ...(dateFrom ? { gte: parseDateParam(dateFrom, 'dateFrom') } : {}),
+              ...(dateTo ? { lte: parseDateParam(dateTo, 'dateTo', true) } : {}),
             },
           }
         : {}),

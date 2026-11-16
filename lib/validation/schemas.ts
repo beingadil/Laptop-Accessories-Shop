@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+// Calendar-date field: must be non-empty and parseable (ISO yyyy-mm-dd or full ISO datetime).
+const dateField = (message: string) =>
+  z.string().min(1, message).refine((v) => !Number.isNaN(new Date(v).getTime()), 'Invalid date');
+
 export const categorySchema = z.object({
   name: z.string().trim().min(2, 'Category name must be at least 2 characters').max(80),
   description: z.string().trim().max(300).optional().nullable(),
@@ -81,7 +85,7 @@ export const purchaseItemInputSchema = z.object({
 export const purchaseSchema = z.object({
   purchaseNumber: z.string().trim().min(2).max(60).optional(),
   supplierId: z.string().min(1, 'Supplier is required'),
-  purchaseDate: z.string().min(1, 'Purchase date is required'),
+  purchaseDate: dateField('Purchase date is required'),
   paidAmount: z.coerce.number().min(0, 'Paid amount cannot be negative').default(0),
   notes: z.string().trim().max(500).optional().nullable(),
   items: z.array(purchaseItemInputSchema).min(1, 'At least one item is required'),
@@ -89,7 +93,7 @@ export const purchaseSchema = z.object({
 
 export const supplierPaymentSchema = z.object({
   supplierId: z.string().min(1, 'Supplier is required'),
-  paymentDate: z.string().min(1, 'Payment date is required'),
+  paymentDate: dateField('Payment date is required'),
   amount: z.coerce.number().positive('Payment amount must be greater than 0'),
   paymentMethod: z.literal('CASH').default('CASH'),
   referenceNumber: z.string().trim().max(80).optional().nullable(),
@@ -110,7 +114,7 @@ export const saleSchema = z.object({
   customerId: z.string().optional().nullable(),
   walkInCustomerName: z.string().trim().max(120).optional().nullable(),
   walkInCustomerPhone: z.string().trim().max(30).optional().nullable(),
-  saleDate: z.string().min(1, 'Sale date is required'),
+  saleDate: dateField('Sale date is required'),
   discount: z.coerce.number().min(0, 'Discount cannot be negative').default(0),
   paymentMethod: z.literal('CASH').default('CASH'),
   notes: z.string().trim().max(600).optional().nullable(),
@@ -126,7 +130,7 @@ export const expenseSchema = z.object({
   title: z.string().trim().min(2, 'Expense title is required').max(140),
   categoryId: z.string().min(1, 'Expense category is required'),
   amount: z.coerce.number().positive('Amount must be greater than 0'),
-  expenseDate: z.string().min(1, 'Expense date is required'),
+  expenseDate: dateField('Expense date is required'),
   description: z.string().trim().max(500).optional().nullable(),
   notes: z.string().trim().max(500).optional().nullable(),
 });
@@ -141,7 +145,7 @@ export const returnItemInputSchema = z.object({
 
 export const returnSchema = z.object({
   originalSaleId: z.string().min(1, 'Original sale is required'),
-  returnDate: z.string().min(1, 'Return date is required'),
+  returnDate: dateField('Return date is required'),
   reason: z.enum(['DEFECTIVE', 'CHANGED_MIND', 'WRONG_PRODUCT', 'OTHER']),
   notes: z.string().trim().max(500).optional().nullable(),
   items: z.array(returnItemInputSchema).min(1, 'Select at least one item to return'),
@@ -156,7 +160,7 @@ export const exchangeReplacementInputSchema = z.object({
 
 export const exchangeSchema = z.object({
   originalSaleId: z.string().min(1, 'Original sale is required'),
-  returnDate: z.string().min(1, 'Exchange date is required'),
+  returnDate: dateField('Exchange date is required'),
   reason: z.enum(['DEFECTIVE', 'CHANGED_MIND', 'WRONG_PRODUCT', 'OTHER']),
   notes: z.string().trim().max(500).optional().nullable(),
   returnedItems: z.array(returnItemInputSchema).min(1, 'Select at least one returned item'),
@@ -168,7 +172,9 @@ export const settingsSchema = z.object({
   address: z.string().trim().min(2).max(240),
   phone1: z.string().trim().min(7).max(30),
   phone2: z.string().trim().max(30).optional().nullable(),
-  logoDataUrl: z.string().optional().nullable(),
+  // Base64 data URL for the shop logo. Cap at ~1.4 MB (≈1 MB binary) so a huge
+  // paste cannot bloat SQLite or every settings/branding payload.
+  logoDataUrl: z.string().max(1_500_000).optional().nullable(),
   invoicePrefix: z.string().trim().min(1).max(20),
   purchasePrefix: z.string().trim().min(1).max(20),
   invoiceFooter: z.string().trim().max(500),
@@ -180,8 +186,8 @@ export const settingsSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  username: z.string().trim().min(1, 'Username is required'),
-  password: z.string().min(1, 'Password is required'),
+  username: z.string().trim().min(1, 'Username is required').max(100),
+  password: z.string().min(1, 'Password is required').max(200),
 });
 
 export const changePasswordSchema = z.object({

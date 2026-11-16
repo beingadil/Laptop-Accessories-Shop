@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth, handleApiError } from '@/lib/api-utils';
+import { requireAuth, handleApiError, parseEnumParam } from '@/lib/api-utils';
 import { parsePaginationParams } from '@/lib/format';
 import type { Prisma } from '@prisma/client';
 
@@ -14,7 +14,12 @@ export async function GET(req: NextRequest) {
     const { page, pageSize, search, sortOrder } = parsePaginationParams(url.searchParams);
 
     if (tab === 'serialized') {
-      const stockStatus = url.searchParams.get('stockStatus') || '';
+      const stockStatus =
+        parseEnumParam(
+          url.searchParams.get('stockStatus') || '',
+          ['IN_STOCK', 'SOLD', 'RETURNED_DEFECTIVE', 'DAMAGED', 'LOST'] as const,
+          'stockStatus'
+        ) ?? '';
       const productId = url.searchParams.get('productId') || '';
 
       const where: Prisma.SerializedInventoryItemWhereInput = {
@@ -28,7 +33,7 @@ export async function GET(req: NextRequest) {
               ],
             }
           : {}),
-        ...(stockStatus ? { stockStatus: stockStatus as Prisma.EnumSerializedStockStatusFilter['equals'] } : {}),
+        ...(stockStatus ? { stockStatus } : {}),
         ...(productId ? { productId } : {}),
       };
 

@@ -2,6 +2,50 @@ import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import type { AdminSessionPayload } from '@/lib/auth';
 import { getSession } from '@/lib/auth';
+import { parseDateValue } from '@/lib/date-utils';
+
+/**
+ * Parse a YYYY-MM-DD query param into a LOCAL calendar Date (server's timezone —
+ * the shop's own PC), instead of JavaScript's UTC interpretation of date-only
+ * strings. Throws BusinessRuleError (→ 400) on invalid input.
+ * `endOfDay` returns 23:59:59.999 (for inclusive upper bounds).
+ */
+export function parseDateParam(
+  value: string | null | undefined,
+  field: string,
+  endOfDay = false
+): Date | undefined {
+  if (value == null || value.trim() === '') return undefined;
+  const parsed = parseDateValue(value);
+  if (!parsed) {
+    throw new BusinessRuleError(`Invalid ${field}. Expected a date like YYYY-MM-DD.`);
+  }
+  return new Date(
+    parsed.year,
+    parsed.month - 1,
+    parsed.day,
+    endOfDay ? 23 : 0,
+    endOfDay ? 59 : 0,
+    endOfDay ? 59 : 0,
+    endOfDay ? 999 : 0
+  );
+}
+
+/**
+ * Validate a string query param against an allow-list; throw 400 otherwise.
+ * Prevents unvalidated strings from reaching Prisma enum filters (which would 500).
+ */
+export function parseEnumParam<T extends string>(
+  value: string | null | undefined,
+  allowed: readonly T[],
+  field: string
+): T | undefined {
+  if (value == null || value.trim() === '') return undefined;
+  if (!allowed.includes(value as T)) {
+    throw new BusinessRuleError(`Invalid ${field}. Expected one of: ${allowed.join(', ')}.`);
+  }
+  return value as T;
+}
 
 export class BusinessRuleError extends Error {
   status: number;
