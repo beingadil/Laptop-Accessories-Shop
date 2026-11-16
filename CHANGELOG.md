@@ -3,7 +3,15 @@
 All notable changes to this project are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: [SemVer](https://semver.org/).
 
-## [1.0.1] - 2026-11-16 (tag `v1.0.1`)
+## [1.0.2] - 2026-11-16 (tag `v1.0.2`)
+
+Hotfix for the broken v1.0.1 installer ("Standalone Next.js server missing at ...\resources\standalone\server.js").
+
+### Fixed
+- **release.yml invoked `pnpm ci`**, which is pnpm's built-in frozen-install command (not the project's `ci` script). The gate therefore ran no lint/typecheck/tests/`next build`, `.next/standalone` never existed on the runner, and electron-builder silently packaged the app **without the entire embedded server**. Now uses `pnpm run ci`, and the workflow fails fast if `.next/standalone/server.js` is absent before packaging.
+- [v1.0.1 release is uninstallable and was deleted from GitHub Releases] — install this instead. Your settings, database and logo are preserved (they live in userData, untouched by the installer).
+
+## [1.0.1] - 2026-11-16
 
 Maintenance + security patch. Fixes the broken `Setup-1.0.0.exe` that could not start ("Timed out waiting for local application server to start"). Released on GitHub via Actions `release.yml`.
 

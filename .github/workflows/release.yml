@@ -49,7 +49,18 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Release gate — lint, typecheck, tests, build
-        run: pnpm ci
+        # NOTE: `pnpm ci` is pnpm's built-in frozen install (NOT our script) —
+        # use `pnpm run ci` or the gate silently does nothing and .next/standalone
+        # never gets built (this is what produced the broken v1.0.1 installer).
+        run: pnpm run ci
+
+      - name: Verify standalone output exists before packaging
+        shell: pwsh
+        run: |
+          if (-not (Test-Path .next/standalone/server.js)) {
+            throw "Release gate failed: .next/standalone/server.js is missing — refusing to package an installer without the embedded server."
+          }
+          Write-Host "standalone/server.js present — packaging will produce a working app."
 
       - name: Build Windows installer
         run: pnpm exec electron-builder --win --config electron-builder.json --publish never
