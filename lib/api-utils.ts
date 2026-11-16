@@ -106,6 +106,12 @@ export function handleApiError(error: unknown): NextResponse {
         { status: 400 }
       );
     }
+    if (prismaError.code === 'P2014') {
+      return NextResponse.json(
+        { error: 'Cannot complete operation because related records exist.' },
+        { status: 400 }
+      );
+    }
     if (prismaError.code === 'P2025') {
       return NextResponse.json({ error: 'Record not found.' }, { status: 404 });
     }

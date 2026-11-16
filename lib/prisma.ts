@@ -1,22 +1,10 @@
-import path from 'node:path';
 import { PrismaClient } from '@prisma/client';
+import { resolveSqliteDbPath } from '@/lib/db-path';
 
 function resolveDatabaseUrl(): string {
-  const configured = process.env.DATABASE_URL?.trim();
-  if (configured) {
-    if (configured.startsWith('file:./') || configured.startsWith('file:../')) {
-      const rel = configured.slice('file:'.length);
-      const abs = path.resolve(process.cwd(), 'prisma', rel);
-      const normalized = `file:${abs}`;
-      process.env.DATABASE_URL = normalized;
-      return normalized;
-    }
-    return configured;
-  }
-  const fallbackPath = path.resolve(process.cwd(), 'prisma', 'dev.db');
-  const fallbackUrl = `file:${fallbackPath}`;
-  process.env.DATABASE_URL = fallbackUrl;
-  return fallbackUrl;
+  const dbPath = resolveSqliteDbPath();
+  process.env.DATABASE_URL = `file:${dbPath}`;
+  return process.env.DATABASE_URL;
 }
 
 const databaseUrl = resolveDatabaseUrl();

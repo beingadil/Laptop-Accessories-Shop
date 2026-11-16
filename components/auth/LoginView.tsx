@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, KeyRound, Loader2, MapPin, Phone, ShieldCheck, User } from 'lucide-react';
 import { toast } from 'sonner';
@@ -161,11 +160,8 @@ export function LoginView({ initialBranding }: { initialBranding: ShopBranding }
               </Button>
             </form>
 
-            <div className="mt-4 border-t border-slate-100 pt-3 flex items-center justify-between text-xs text-slate-500">
-              <span>Local Admin Portal</span>
-              <Link href="/" className="font-medium text-blue-600 hover:underline">
-                Go to Dashboard
-              </Link>
+            <div className="mt-4 border-t border-slate-100 pt-3 text-center text-xs text-slate-500">
+              Local Admin Portal
             </div>
           </CardContent>
         </Card>

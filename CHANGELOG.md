@@ -3,6 +3,29 @@
 All notable changes to this project are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: [SemVer](https://semver.org/).
 
+## [1.1.0] - 2026-11-16 (tag `v1.1.0`)
+
+Error recovery and feature-completeness release. Fresh installs start clean (zero demo data). Error pages are now styled and recoverable, Shop Expenses has full category management, every module has working Edit and Delete, and the product form no longer forces brand/model on products that don't have them (bags, cables, accessories). Build telemetry disabled for offline/low-connectivity machines.
+
+### Added
+- Global error boundaries (`app/error.tsx`, `app/global-error.tsx`, `app/not-found.tsx`) — the app shows a styled, retryable screen instead of Next.js' raw production crash page.
+- Expense categories can be added, renamed, and deleted from Shop Expenses (new Categories dialog; categories with expenses cannot be deleted).
+- Warranty records have a Delete button (with confirmation dialog and audit log entry).
+- Sidebar collapsed mode stacks icon buttons vertically — no overflow at 72px width.
+- Product form: brand and model are optional (stored as empty string; lists show "—" when blank). Required only: name, SKU, category.
+- Login page: removed the "Go to Dashboard" shortcut (credential-only access enforced).
+
+### Fixed
+- Backup/restore re-engineered: `VACUUM INTO` consistent snapshot, verified before touching the live database (schema + integrity gate), atomic rename swap, and automatic rollback on failure. The admin session is signed out on restore to prevent stale JWT vs DB mismatches.
+- `NEXT_TELEMETRY_DISABLED=1` set in `.env`, `.env.example`, and now here — builds no longer stall on machines where Next.js telemetry requests hang (this machine's network kills registry connections).
+- Reports `?type=` now returns 400 for unknown types (was silently returning movements report).
+- Supplier delete with only cancelled purchase/payment history no longer 500s (P2014 mapped).
+- Warranty `warrantyTerms` rejects null — validation matches DB column (string|nullable).
+
+### Changed
+- Demo seed data removed entirely (only admin, shop settings, product categories, and expense categories are seeded on fresh installs).
+- Fresh installs now start with an empty shop (previously 8 demo products, 4 sales, 2 suppliers, 3 customers, 3 expenses).
+
 ## [1.0.2] - 2026-11-16 (tag `v1.0.2`)
 
 Hotfix for the broken v1.0.1 installer ("Standalone Next.js server missing at ...\resources\standalone\server.js").
@@ -63,6 +86,20 @@ First production release. All Google/AI-Studio dependencies removed; the app is 
 - `admin`/`admin123` default credentials on fresh installs — change immediately.
 
 ## [Unreleased]
+
+### Fixed
+- "Application error: a client-side exception has occurred" — added `app/error.tsx`, `app/global-error.tsx` (styled, retry button) and `app/not-found.tsx`; any transient failure now renders a recoverable screen instead of the raw production error page.
+- Backup/restore hardened (restored DBs no longer risk silent data loss): VACUUM INTO rollback snapshot, checkpoint-busy abort, full schema gate (20 tables + required columns + integrity check) before touching the live DB, atomic temp-file rename swap, automatic rollback on failure, sign-out on restore, 413 pre-check, shared `lib/db-path.ts` so backup/restore operate on the exact file the app uses.
+- `warrantyTerms` rejected null → 400 on warranty save (schema now nullable, matching the DB).
+- `/api/reports?type=` unknown value now returns 400 (was silently served the movements report).
+- Supplier delete with only-cancelled history no longer 500s (P2014 → 400).
+- Demo seed data removed from fresh installs entirely (only admin + shop settings + reference categories are seeded); existing install DBs were wiped clean (backed up beforehand).
+- `pnpm build` hanging forever after the banner: Next.js telemetry requests stall against this network (registry kills connections); builds now set `NEXT_TELEMETRY_DISABLED=1` (`.env`, `.env.example`, and this entry).
+- Expense categories had no edit/delete — added `PATCH/DELETE /api/expense-categories/[id]` (delete blocked while in use) + "Categories" manager dialog in Shop Expenses (add/rename/delete).
+- Warranties had no delete — added `DELETE /api/warranties/[id]` + trash button + confirm dialog.
+- Login page: removed the "Go to Dashboard" shortcut (credential-only access is now visually enforced too; middleware still blocks anonymous access server-side).
+- Sidebar collapsed (72px) overflowed its footer — footer now stacks icon-only buttons vertically when collapsed.
+- Product form required brand/model on every item — bags, cables and accessories without brand/model can now be saved (fields are optional everywhere, stored as empty string; lists render "—" when blank).
 
 ### Added
 - Application icon (`build/icon.svg` → `icon.png`/`icon-256.png`/`icon.ico`), drawn as vector geometry and wired into electron-builder (installer, uninstaller, shortcut, exe).

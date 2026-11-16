@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 const updateWarrantySchema = z.object({
   status: z.enum(['ACTIVE', 'EXPIRED', 'VOID']).optional(),
-  warrantyTerms: z.string().trim().max(800).optional(),
+  warrantyTerms: z.string().trim().max(800).optional().nullable(),
   durationMonths: z.coerce.number().int().min(0).max(60).optional(),
 });
 
@@ -53,6 +53,38 @@ export async function PATCH(
     });
 
     return NextResponse.json(updated);
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const auth = await requireAuth();
+    if (auth.errorResponse) return auth.errorResponse;
+    const { id } = await context.params;
+
+    await prisma.$transaction(async (tx) => {
+      const existing = await tx.warranty.findUnique({ where: { id } });
+      if (!existing) throw new BusinessRuleError('Warranty record not found.', 404);
+
+      await tx.warranty.delete({ where: { id } });
+
+      await recordAuditLog(tx, {
+        entityType: 'Warranty',
+        entityId: id,
+        action: 'DELETE',
+        previousData: existing,
+        adminUserId: auth.session.userId,
+      });
+
+      return existing;
+    });
+
+    return NextResponse.json({ success: true });
   } catch (error) {
     return handleApiError(error);
   }

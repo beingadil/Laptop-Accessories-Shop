@@ -15,8 +15,10 @@ export const productSchema = z.object({
   name: z.string().trim().min(2, 'Product name is required').max(160),
   sku: z.string().trim().min(2, 'SKU is required').max(60),
   categoryId: z.string().min(1, 'Category is required'),
-  brand: z.string().trim().min(1, 'Brand is required').max(80),
-  model: z.string().trim().min(1, 'Model is required').max(120),
+  // Optional everywhere in the UI — empty/missing are normalized to ''
+  // because the DB column is NOT NULL. Bags, cables, etc. have no brand/model.
+  brand: z.string().trim().max(80).optional().nullable().transform((v) => v ?? ''),
+  model: z.string().trim().max(120).optional().nullable().transform((v) => v ?? ''),
   processor: z.string().trim().max(120).optional().nullable(),
   ram: z.string().trim().max(60).optional().nullable(),
   ssd: z.string().trim().max(60).optional().nullable(),

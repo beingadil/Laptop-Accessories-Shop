@@ -168,7 +168,7 @@ export default function ProductsPage() {
             {row.name}
           </Link>
           <div className="text-xs text-slate-500">
-            <span className="font-mono">{row.sku}</span> · {row.brand} · {row.condition}
+            <span className="font-mono">{row.sku}</span> · {row.brand || '—'} · {row.condition}
           </div>
         </div>
       ),
