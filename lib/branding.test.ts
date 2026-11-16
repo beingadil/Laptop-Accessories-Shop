@@ -7,7 +7,7 @@ import {
   getInvoiceFooterText,
   normalizeShopBranding,
   slugifyShopName,
-} from './branding';
+} from './branding.ts';
 
 test('getBrandInitials extracts clean monogram initials', () => {
   assert.equal(getBrandInitials('Tayyab Enterprises'), 'TE');

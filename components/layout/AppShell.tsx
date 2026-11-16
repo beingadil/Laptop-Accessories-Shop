@@ -125,6 +125,7 @@ const MASTER_NAV_GROUPS: MasterNavGroup[] = [
       { label: 'Inventory & Alerts', href: '/settings?tab=inventory' },
       { label: 'Admin Security', href: '/settings?tab=security' },
       { label: 'Backup & Restore', href: '/settings?tab=backup' },
+      { label: 'Application Updates', href: '/settings?tab=updates' },
     ],
   },
 ];
@@ -151,6 +152,7 @@ const QUICK_MODULE_ROUTES: Array<{ label: string; category: string; href: string
   { label: 'Warranty Tracker', category: 'Module', href: '/warranty', keywords: 'warranty expiry checking' },
   { label: 'Business Reports', category: 'Module', href: '/reports', keywords: 'analytics profit loss valuation excel pdf' },
   { label: 'Shop Settings & Backup', category: 'Module', href: '/settings?tab=shop', keywords: 'logo password backup restore' },
+  { label: 'Application Updates', category: 'Module', href: '/settings?tab=updates', keywords: 'update upgrade version patch release' },
 ];
 
 interface SearchResults {

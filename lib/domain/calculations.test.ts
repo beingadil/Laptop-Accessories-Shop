@@ -10,7 +10,7 @@ import {
   isWarrantyActive,
   validateUniqueSerials,
   validateStockDeduction,
-} from './calculations';
+} from './calculations.ts';
 
 test('weighted average cost computes accurately on restock', () => {
   assert.equal(calculateWeightedAverageCost(10, 1500, 10, 2000), 1750);

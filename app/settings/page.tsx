@@ -10,6 +10,7 @@ import {
   FileText,
   HardDriveUpload,
   KeyRound,
+  RefreshCw,
   Save,
   Store,
   Trash2,
@@ -28,9 +29,9 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-type SettingsTabKey = 'shop' | 'invoice' | 'inventory' | 'security' | 'backup';
+type SettingsTabKey = 'shop' | 'invoice' | 'inventory' | 'security' | 'backup' | 'updates';
 
-const VALID_TABS: SettingsTabKey[] = ['shop', 'invoice', 'inventory', 'security', 'backup'];
+const VALID_TABS: SettingsTabKey[] = ['shop', 'invoice', 'inventory', 'security', 'backup', 'updates'];
 
 interface ShopSettingsData {
   shopName: string;
@@ -118,6 +119,78 @@ function SettingsContent() {
       .catch(() => toast.error('Could not load settings.'))
       .finally(() => setLoading(false));
   }, []);
+
+  // -------- Application updates (desktop only) --------
+  type UpdatePhase =
+    | 'idle'
+    | 'checking'
+    | 'available'
+    | 'downloading'
+    | 'downloaded'
+    | 'not-available'
+    | 'error';
+  const [desktopVersion, setDesktopVersion] = React.useState<string | null>(null);
+  const [updatePhase, setUpdatePhase] = React.useState<UpdatePhase>('idle');
+  const [updateDetail, setUpdateDetail] = React.useState<{ version?: string; percent?: number; message?: string }>({});
+  const isDesktop = typeof window !== 'undefined' && Boolean(window.electronAPI?.isDesktop);
+
+  React.useEffect(() => {
+    if (!window.electronAPI?.isDesktop) return;
+    window.electronAPI
+      .getDesktopInfo()
+      .then((info) => setDesktopVersion(info.version))
+      .catch(() => {});
+    const unsubscribe = window.electronAPI.onUpdateStatus((status) => {
+      switch (status.state) {
+        case 'checking':
+          setUpdatePhase('checking');
+          break;
+        case 'available':
+          setUpdatePhase('available');
+          setUpdateDetail({ version: status.version });
+          break;
+        case 'downloading':
+          setUpdatePhase('downloading');
+          setUpdateDetail({ percent: status.percent });
+          break;
+        case 'downloaded':
+          setUpdatePhase('downloaded');
+          setUpdateDetail({ version: status.version });
+          break;
+        case 'not-available':
+          setUpdatePhase('not-available');
+          break;
+        case 'error':
+          setUpdatePhase('error');
+          setUpdateDetail({ message: status.message });
+          break;
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  async function handleCheckForUpdates() {
+    if (!window.electronAPI?.isDesktop) return;
+    setUpdatePhase('checking');
+    const result = await window.electronAPI.checkForUpdates();
+    if (!result.supported) {
+      setUpdatePhase('error');
+      setUpdateDetail({ message: result.error || 'Updates only run in the packaged desktop app.' });
+    } else if (result.error) {
+      setUpdatePhase('error');
+      setUpdateDetail({ message: result.error });
+    }
+  }
+
+  async function handleDownloadUpdate() {
+    if (!window.electronAPI?.isDesktop) return;
+    const result = await window.electronAPI.downloadUpdate();
+    if (!result.ok) toast.error(result.error || 'Download failed. Check your internet connection.');
+  }
+
+  function handleInstallUpdate() {
+    window.electronAPI?.installUpdate();
+  }
 
   function handleTabChange(nextTab: string) {
     if (VALID_TABS.includes(nextTab as SettingsTabKey)) {
@@ -306,6 +379,10 @@ function SettingsContent() {
             <TabsTrigger value="backup">
               <HardDriveUpload className="h-3.5 w-3.5" />
               Backup &amp; Restore
+            </TabsTrigger>
+            <TabsTrigger value="updates">
+              <RefreshCw className="h-3.5 w-3.5" />
+              Updates
             </TabsTrigger>
           </TabsList>
 
@@ -680,6 +757,94 @@ function SettingsContent() {
                     </Button>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Tab 6: Application Updates */}
+          <TabsContent value="updates">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="h-4 w-4 text-blue-600" />
+                  <CardTitle>Application Updates</CardTitle>
+                </div>
+                <CardDescription>
+                  Keep the application current. Updates ship from GitHub Releases and never overwrite your shop data.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div>
+                    <p className="text-xs text-slate-500">Installed version</p>
+                    <p className="text-lg font-semibold tabular-nums text-slate-900">
+                      v{desktopVersion ?? 'browser / dev'}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={!isDesktop || updatePhase === 'checking' || updatePhase === 'downloading'}
+                    onClick={handleCheckForUpdates}
+                  >
+                    <RefreshCw className={`mr-2 h-4 w-4 ${updatePhase === 'checking' ? 'animate-spin' : ''}`} />
+                    {updatePhase === 'checking' ? 'Checking…' : 'Check for Updates'}
+                  </Button>
+                </div>
+
+                {updatePhase === 'available' && (
+                  <div className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+                    <p className="text-sm font-medium text-blue-900">
+                      Version {updateDetail.version} is available.
+                    </p>
+                    <Button type="button" onClick={handleDownloadUpdate}>
+                      Download Update
+                    </Button>
+                  </div>
+                )}
+
+                {updatePhase === 'downloading' && (
+                  <div className="space-y-2 rounded-lg border border-slate-200 px-4 py-3">
+                    <p className="text-xs font-medium text-slate-600">
+                      Downloading update… {updateDetail.percent ?? 0}%
+                    </p>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                      <div
+                        className="h-full rounded-full bg-blue-600 transition-all duration-300"
+                        style={{ width: `${updateDetail.percent ?? 0}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {updatePhase === 'downloaded' && (
+                  <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-4 py-3">
+                    <p className="text-sm font-medium text-green-900">
+                      Version {updateDetail.version} downloaded. Restart to install.
+                    </p>
+                    <Button type="button" onClick={handleInstallUpdate}>
+                      Install &amp; Restart
+                    </Button>
+                  </div>
+                )}
+
+                {updatePhase === 'not-available' && (
+                  <p className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
+                    You are running the latest version.
+                  </p>
+                )}
+
+                {updatePhase === 'error' && (
+                  <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                    {updateDetail.message || 'Could not check for updates. Check your internet connection.'}
+                  </p>
+                )}
+
+                <p className="text-xs leading-5 text-slate-400">
+                  {isDesktop
+                    ? 'Updates are delivered silently in the background from GitHub Releases (beingadil/Laptop-Accessories-Shop). Installing an update never deletes or overwrites the shop database — it lives in the application data folder and is preserved across versions.'
+                    : 'This screen works in the packaged desktop app. Running the web dev server, updates are not checked.'}
+                </p>
               </CardContent>
             </Card>
           </TabsContent>

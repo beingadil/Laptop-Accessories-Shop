@@ -1,0 +1,65 @@
+name: Release
+
+# Triggered only by a version tag, e.g.:
+#   git tag v1.0.0 && git push origin v1.0.0
+# The job re-runs the full gate, packages the Windows installer, and publishes
+# it (plus update metadata latest.yml) as a GitHub Release — automatically
+# eligible for electron-updater consumption by installed apps.
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+env:
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  release:
+    name: Windows installer + GitHub Release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate tag matches package.json version
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}".TrimStart('v')
+          $pkg = (Get-Content package.json | ConvertFrom-Json).version
+          if ($tag -ne $pkg) {
+            Write-Error "Tag v$tag does not match package.json version $pkg"
+            exit 1
+          }
+          Write-Host "Release version OK: $pkg"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Setup Node.js 26 (with pnpm store cache)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: pnpm
+
+      - name: Install dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Release gate — lint, typecheck, tests, build
+        run: pnpm ci
+
+      - name: Build Windows installer and publish release
+        run: pnpm exec electron-builder --win --config electron-builder.json --publish always
+
+      - name: Upload installer as workflow artifact (backup)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer
+          path: |
+            dist-electron/*.exe
+            dist-electron/latest.yml
+          retention-days: 30

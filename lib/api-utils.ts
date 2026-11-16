@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
+import { BusinessRuleError } from '@/lib/errors';
 import type { AdminSessionPayload } from '@/lib/auth';
 import { getSession } from '@/lib/auth';
 import { parseDateValue } from '@/lib/date-utils';
+
+export { BusinessRuleError };
 
 /**
  * Parse a YYYY-MM-DD query param into a LOCAL calendar Date (server's timezone —
@@ -45,15 +48,6 @@ export function parseEnumParam<T extends string>(
     throw new BusinessRuleError(`Invalid ${field}. Expected one of: ${allowed.join(', ')}.`);
   }
   return value as T;
-}
-
-export class BusinessRuleError extends Error {
-  status: number;
-  constructor(message: string, status = 400) {
-    super(message);
-    this.name = 'BusinessRuleError';
-    this.status = status;
-  }
 }
 
 /**

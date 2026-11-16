@@ -41,3 +41,18 @@ Purpose: keep long-horizon context alive across sessions. Append, don't rewrite 
 2. App icon — do you have a .ico / logo (the settings-uploadable logo could be rasterized)? Needed for installer quality.
 3. Default admin: keep `admin/admin123` but force password change on first login, or blank-seed + first-run setup screen? (A2)
 4. Release cadence — lock v1.0.0 scope to current feature set (inventory+sales+purchases+returns+reports), everything else v1.1+?
+
+## 2026-11-16 (later) - Full phase run to 1.0.0
+- User directive: continue all phases one by one; no per-phase commits - ONE final commit before push; before that final commit, verify the GitHub CI flow works (fast) from a fresh clone.
+- Phases 0-10 executed. Headline: Google deps removed; real auth end-to-end; atomic stock writes (B1/B2); refund caps (A5); login/password throttle (A6); security headers (A8); date/enum/TZ validation (B8/B9/B10); restore hardening with auto-rollback; node --test infra (27 tests green, zero new runtime deps); Electron verified packaged; NSIS installer built + silent install/uninstall verified; workflows ci.yml/release.yml/security.yml written; electron-updater wired (Settings - Updates tab).
+- Fresh-clone check: local clone + pnpm ci green before final commit.
+- electron-builder.json artifactName fixed to match latest.yml (else updater 404s).
+- .npmrc is machine-local + gitignored; use pnpm_config_network_concurrency=1 when the registry throttles (parallel fetches keep dying; serial works).
+- electron dist binary missing? 
+ode node_modules/electron/install.js.
+- Restart preview servers after every rebuild (chunk hashes change under a running server).
+- v1.0.1 queued: migration runner, B3 conditional increment, A2 forced pw change, icon/signing, loading/error boundaries, B3 leftovers.
+
+## Resolved answers (user 2026-11-16)
+- Main repo = beingadil/Laptop-Accessories-Shop; every push lands there.
+- All Google deps must go (offline app) - done and verified in lockfile.

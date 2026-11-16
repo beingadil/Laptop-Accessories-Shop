@@ -2,6 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
   "appId": "com.tayyabenterprises.management",
   "productName": "Tayyab Enterprises Management System",
+  "artifactName": "Tayyab-Enterprises-Management-System-Setup-${version}.${ext}",
   "directories": {
     "output": "dist-electron"
   },
@@ -37,6 +38,14 @@
       }
     ]
   },
+  "publish": [
+    {
+      "provider": "github",
+      "owner": "beingadil",
+      "repo": "Laptop-Accessories-Shop",
+      "releaseType": "release"
+    }
+  ],
   "nsis": {
     "oneClick": false,
     "perMachine": false,

@@ -3,7 +3,46 @@
 All notable changes to this project are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: [SemVer](https://semver.org/).
 
+## [1.0.0] - 2026-11-16
+
+First production release. All Google/AI-Studio dependencies removed; the app is fully offline.
+
+### Security
+- **Real authentication enforced end-to-end** across all ~59 API routes (session cookie verified) and pages (middleware redirect → /login); truthful `/api/auth/session`; dummy-hash login timing equalization; `AUTH_SECRET` fail-fast in production; login & password-change throttling (5/5min → 429); no logout existed before — added **Sign out** control in the sidebar (desktop + mobile).
+- **Database restore hardened**: 250 MB cap, magic-byte + core-table validation, `quick_check` verification, **automatic rollback** to the pre-restore snapshot on integrity failure, WAL checkpoint before snapshotting.
+- Refund amounts capped at prorated line totals (return + exchange). Security headers: nosniff, SAMEORIGIN, no-referrer, DNS-prefetch off. `logoDataUrl` size-capped (~1.4 MB). Enum query params allow-listed; zod date validation on all date fields (400 not 500); date filters interpreted as local calendar dates (was UTC, off-by-one day in PKT).
+- Windows installer is **unsigned** — SmartScreen will flag it on first install (certificate pending, see SECURITY.md).
+
+### Changed
+- **Zero Google dependencies**: `@google/genai`, `firebase-tools` (+gRPC tree), `next/font/google` (offline system fonts), `GEMINI_API_KEY`, AI Studio artifacts. Lockfile verified clean.
+- recharts (~392 kB) removed from the dashboard critical path via lazy `next/dynamic` chunks (dashboard First Load ≈ 132 kB).
+- Package renamed `tayyab-enterprises-management-system`; repo home is `beingadil/Laptop-Accessories-Shop` (`main` is pushed).
+- pnpm-only toolchain with `nodeLinker: hoisted` + `outputFileTracingRoot` (Windows EPERM fixes); standalone builds cleanly.
+- `prisma/dev.db` is the first-run seed; live data stays in Electron `userData`.
+
+### Fixed
+- **Oversell / stock lost-update races**: atomic guarded decrements (`updateMany WHERE currentStock >= qty`) in sales create/update and purchase reversals; atomic serial claims (`stockStatus='IN_STOCK'`) prevent double-selling a laptop.
+- Document numbering (invoice/PO/return) now probes MAX(docNo)+1; transactions retry on P2002 collisions.
+- Return over-return race documented; partially mitigated (full conditional increment pending).
+
+### Removed
+- `motion` dependency (imported nowhere); dead `transpilePackages` config; no-op middleware content; `prisma/dev.db-shm/.wal` from tracking.
+
+### Added
+- **Testing from zero**: `node --test` runner — 27 tests green (calculations, date-utils, branding, auth-edge JWT, and real-SQLite integration tests of the atomic stock/refund paths). `pnpm ci` = lint + typecheck + test + build.
+- **CI/CD**: `.github/workflows/ci.yml` (lint→typecheck→test→build on every push/PR), `release.yml` (tag `v*.*.*` → full gate → NSIS installer + `latest.yml` published to GitHub Releases via GITHUB_TOKEN), `security.yml` (dependency audit + secret scan).
+- **Auto-update**: `electron-updater` wired (startup check + Settings → Updates tab: check/download/install, progress, version display).
+- **NSIS installer built and tested end-to-end** (silent install, launch, silent uninstall; userData DB preserved).
+- Docs: `docs/{PROJECT_AUDIT,ARCHITECTURE,PERFORMANCE_AUDIT,TECH_DEBT,TESTING,PRD,DATABASE,SECURITY,BUILD,RELEASE}.md`, `ROADMAP.md`, `memory.md`, `CHANGELOG.md`.
+
+### Known issues
+- No code signing (see SECURITY.md). No runtime migration runner — v1.x schema changes are additive-only; startup migration hook planned (DATABASE.md).
+- `admin`/`admin123` default credentials on fresh installs — change immediately.
+
 ## [Unreleased]
+
+### Added
+- `docs/PROJECT_AUDIT.md`, `docs/ARCHITECTURE.md`, `docs/PERFORMANCE_AUDIT.md`, `docs/TECH_DEBT.md`, `docs/TESTING.md`, `ROADMAP.md`, `memory.md`, `.npmrc` (local, gitignored).
 
 ### Security
 - **Real authentication enforced end-to-end** (2026-11-16). Previously the entire API was anonymously callable: `requireAuth()` returned the first admin row without verifying any cookie, `middleware.ts` was a no-op, `/api/auth/session` always reported authenticated. Now: `requireAuth()` verifies the HS256 session cookie via `jose` and returns 401 otherwise (all ~59 call sites enforced); `middleware.ts` redirects page requests to `/login` and answers `/api/*` with 401; login compares against a dummy bcrypt hash for unknown usernames (timing oracle closed); `AUTH_SECRET` now fails fast in production when missing/short (dev-only fallback retained); `/api/auth/session` reports the real session state; added an always-available **Sign out** control in the sidebar (no logout existed before).
@@ -28,7 +67,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 - `pnpm-workspace.yaml` allowBuilds so Prisma/Tailwind postinstalls run under pnpm 11.
 
 ### Added
-- `docs/PROJECT_AUDIT.md`, `docs/ARCHITECTURE.md`, `docs/PERFORMANCE_AUDIT.md`, `docs/TECH_DEBT.md`, `docs/TESTING_STRATEGY.md`, `ROADMAP.md`, `memory.md`.
+- `docs/PROJECT_AUDIT.md`, `docs/ARCHITECTURE.md`, `docs/PERFORMANCE_AUDIT.md`, `docs/TECH_DEBT.md`, `docs/TESTING.md`, `ROADMAP.md`, `memory.md`.
 - `.npmrc` (`node-linker=hoisted`).
 
 ## [0.1.0] - 2026-11 (inherited baseline)

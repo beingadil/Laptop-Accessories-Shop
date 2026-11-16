@@ -10,3 +10,6 @@ prisma/*.db-wal
 .env*
 !.env.example
 
+
+.npmrc
+tests/integration/.tmp-integration.db

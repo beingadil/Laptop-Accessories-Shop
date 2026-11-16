@@ -8,7 +8,7 @@ import {
   isDateOutOfRange,
   parseDateValue,
   shiftMonth,
-} from './date-utils';
+} from './date-utils.ts';
 
 test('parseDateValue validates leap years and calendar bounds', () => {
   assert.deepEqual(parseDateValue('2024-02-29'), { year: 2024, month: 2, day: 29 });

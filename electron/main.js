@@ -6,6 +6,14 @@ const http = require('node:http');
 const { spawn } = require('node:child_process');
 const crypto = require('node:crypto');
 
+let autoUpdater = null;
+try {
+  // Present only when the app is packaged — dev builds skip update checks.
+  ({ autoUpdater } = require('electron-updater'));
+} catch {
+  autoUpdater = null;
+}
+
 let mainWindow = null;
 let serverProcess = null;
 let activePort = 3000;
@@ -182,8 +190,72 @@ function createMainWindow() {
     return { action: 'deny' };
   });
 
+  // Defence in depth: block navigation away from the embedded app origin entirely.
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (!url.startsWith(`http://127.0.0.1:${activePort}`)) {
+      event.preventDefault();
+    }
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+}
+
+function registerUpdateHandlers() {
+  const send = (payload) => {
+    if (mainWindow) mainWindow.webContents.send('updater:status', payload);
+  };
+
+  if (autoUpdater) {
+    autoUpdater.autoDownload = false; // user approves downloads
+    autoUpdater.autoInstallOnAppQuit = true;
+
+    autoUpdater.on('checking-for-update', () => send({ state: 'checking' }));
+    autoUpdater.on('update-available', (info) =>
+      send({ state: 'available', version: info?.version })
+    );
+    autoUpdater.on('update-not-available', (info) =>
+      send({ state: 'not-available', version: info?.version || app.getVersion() })
+    );
+    autoUpdater.on('error', (err) =>
+      send({ state: 'error', message: err?.message || String(err) })
+    );
+    autoUpdater.on('download-progress', (p) =>
+      send({ state: 'downloading', percent: Math.round(p?.percent ?? 0) })
+    );
+    autoUpdater.on('update-downloaded', (info) =>
+      send({ state: 'downloaded', version: info?.version })
+    );
+  }
+
+  ipcMain.handle('updater:check', async () => {
+    if (!autoUpdater) return { supported: false, error: 'electron-updater not available.' };
+    if (!app.isPackaged) {
+      return { supported: false, error: 'Update checks only run in the packaged app.' };
+    }
+    try {
+      await autoUpdater.checkForUpdates();
+      return { supported: true };
+    } catch (err) {
+      return { supported: true, error: err?.message || String(err) };
+    }
+  });
+
+  ipcMain.handle('updater:download', async () => {
+    if (!autoUpdater || !app.isPackaged) return { ok: false, error: 'Not available.' };
+    try {
+      await autoUpdater.downloadUpdate();
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err?.message || String(err) };
+    }
+  });
+
+  ipcMain.handle('updater:install', () => {
+    if (!autoUpdater) return { ok: false };
+    autoUpdater.quitAndInstall(false, true);
+    return { ok: true };
   });
 }
 
@@ -239,8 +311,14 @@ function registerIpcHandlers() {
 app.whenReady().then(async () => {
   try {
     registerIpcHandlers();
+    registerUpdateHandlers();
     await startEmbeddedNextServer();
     createMainWindow();
+
+    // Packaged builds check for updates on startup (non-blocking).
+    if (app.isPackaged && autoUpdater) {
+      autoUpdater.checkForUpdates().catch(() => {});
+    }
   } catch (err) {
     dialog.showErrorBox(
       'Startup Error',

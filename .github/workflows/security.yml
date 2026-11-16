@@ -1,0 +1,59 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly dependency vulnerability scan, Mondays 06:00 UTC
+    - cron: '0 6 * * 1'
+
+jobs:
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Setup Node.js 26
+        uses: actions/setup-node@v4
+        with:
+          node-version: 26
+
+      - name: Install (locked)
+        run: pnpm install --frozen-lockfile
+
+      - name: Audit production dependencies (fail on high/critical)
+        run: pnpm audit --prod --audit-level=high
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 26
+        uses: actions/setup-node@v4
+        with:
+          node-version: 26
+
+      - name: Scan working tree for obvious secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Fails the job if committed files contain live-looking secrets.
+          # Allow-list: .env.example placeholders, docs mentioning AUTH_SECRET.
+          if grep -rInE '(BEGIN (RSA|OPENSSH|PRIVATE)|AKIA[0-9A-Z]{16}|ghp_[0-9A-Za-z]{36}|github_pat_[0-9A-Za-z_]{82})' \
+            --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.next . ; then
+            echo "::error::Potential secret found in repository"
+            exit 1
+          fi
+          echo "No obvious secrets found."

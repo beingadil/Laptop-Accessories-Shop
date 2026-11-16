@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { BusinessRuleError } from '@/lib/api-utils';
+import { BusinessRuleError } from '@/lib/errors';
 import {
   calculateSaleTotals,
   calculateWarrantyEndDate,

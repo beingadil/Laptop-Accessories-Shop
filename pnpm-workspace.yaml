@@ -5,4 +5,6 @@ allowBuilds:
   '@tailwindcss/oxide': true
   prisma: true
   core-js: false
+  electron-winstaller: false
+  electron: true
 
