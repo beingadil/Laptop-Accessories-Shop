@@ -1,7 +1,12 @@
 node_modules/
 .next/
+dist-electron/
 coverage/
 .DS_Store
 *.log
+*.tsbuildinfo
+prisma/*.db-shm
+prisma/*.db-wal
 .env*
 !.env.example
+
