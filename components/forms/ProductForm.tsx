@@ -2,7 +2,9 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import { generateSku } from '@/lib/sku';
 import { FormPageShell } from '@/components/forms/FormPageShell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -49,7 +51,7 @@ export function ProductForm({ initialData }: { initialData?: ProductFormInitialD
   const [form, setForm] = React.useState<ProductFormInitialData>(
     initialData ?? {
       name: '',
-      sku: '',
+      sku: generateSku(),
       categoryId: '',
       brand: '',
       model: '',
@@ -180,13 +182,28 @@ export function ProductForm({ initialData }: { initialData?: ProductFormInitialD
               <Label htmlFor="prod-sku" required>
                 SKU / Item Code
               </Label>
-              <Input
-                id="prod-sku"
-                value={form.sku}
-                onChange={(e) => setForm({ ...form, sku: e.target.value.toUpperCase() })}
-                placeholder="e.g., LAP-HP-840G6"
-                className="font-mono"
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="prod-sku"
+                  value={form.sku}
+                  onChange={(e) => setForm({ ...form, sku: e.target.value.toUpperCase() })}
+                  placeholder="Auto-generated — edit if needed"
+                  className="font-mono"
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                {!isEditing && (
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, sku: generateSku() })}
+                    title="Generate a different SKU"
+                    aria-label="Generate a different SKU"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="space-y-1.5">
