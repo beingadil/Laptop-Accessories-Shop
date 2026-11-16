@@ -36,7 +36,6 @@
     "jspdf": "^2.5.2",
     "jspdf-autotable": "^3.8.4",
     "lucide-react": "^0.553.0",
-    "motion": "^12.23.24",
     "next": "^15.4.9",
     "postcss": "^8.5.6",
     "prisma": "^6.16.0",

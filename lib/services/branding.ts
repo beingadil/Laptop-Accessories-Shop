@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { prisma } from '@/lib/prisma';
 import {
   DEFAULT_SHOP_BRANDING,
@@ -5,7 +6,8 @@ import {
   type ShopBranding,
 } from '@/lib/branding';
 
-export async function getShopBranding(): Promise<ShopBranding> {
+// Deduped per server request — the root layout calls this twice (generateMetadata + layout).
+export const getShopBranding = cache(async function getShopBranding(): Promise<ShopBranding> {
   try {
     const settings = await prisma.shopSettings.findUnique({
       where: { id: 'default' },
@@ -26,4 +28,4 @@ export async function getShopBranding(): Promise<ShopBranding> {
   } catch {
     return { ...DEFAULT_SHOP_BRANDING };
   }
-}
+});

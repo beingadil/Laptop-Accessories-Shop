@@ -2,18 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import {
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Cell,
-} from 'recharts';
+import dynamic from 'next/dynamic';
 import {
   Plus,
   ShoppingBag,
@@ -23,6 +12,20 @@ import {
   AlertTriangle,
   XCircle,
 } from 'lucide-react';
+
+const chartFallback = () => (
+  <div className="h-full w-full animate-pulse rounded-lg bg-slate-100" aria-hidden="true" />
+);
+
+// Charts render below the KPI cards — split them out of the first-load bundle.
+const SalesTrendChart = dynamic(
+  () => import('./DashboardCharts').then((m) => m.SalesTrendChart),
+  { ssr: false, loading: chartFallback }
+);
+const ProfitChart = dynamic(
+  () => import('./DashboardCharts').then((m) => m.ProfitChart),
+  { ssr: false, loading: chartFallback }
+);
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BrandMark } from '@/components/branding/BrandMark';
@@ -251,35 +254,7 @@ export function DashboardView({ initialData }: { initialData?: DashboardViewData
             </Link>
           </CardHeader>
           <CardContent className="h-64 pt-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data.chartSeries}>
-                <defs>
-                  <linearGradient id="salesFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#2563EB" stopOpacity={0.18} />
-                    <stop offset="95%" stopColor="#2563EB" stopOpacity={0.01} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748B' }} tickLine={false} axisLine={false} />
-                <YAxis
-                  tick={{ fontSize: 11, fill: '#64748B' }}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(v) => `${Math.round(v / 1000)}k`}
-                />
-                <Tooltip
-                  formatter={(value: number) => [formatPKR(value), 'Sales']}
-                  contentStyle={{ borderRadius: 8, borderColor: '#E2E8F0', fontSize: 12 }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="sales"
-                  stroke="#2563EB"
-                  strokeWidth={2}
-                  fill="url(#salesFill)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            <SalesTrendChart chartSeries={data.chartSeries} />
           </CardContent>
         </Card>
 
@@ -295,30 +270,7 @@ export function DashboardView({ initialData }: { initialData?: DashboardViewData
             </Link>
           </CardHeader>
           <CardContent className="h-64 pt-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data.chartSeries}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748B' }} tickLine={false} axisLine={false} />
-                <YAxis
-                  tick={{ fontSize: 11, fill: '#64748B' }}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(v) => `${Math.round(v / 1000)}k`}
-                />
-                <Tooltip
-                  formatter={(value: number) => [formatPKR(value), 'Net Profit']}
-                  contentStyle={{ borderRadius: 8, borderColor: '#E2E8F0', fontSize: 12 }}
-                />
-                <Bar dataKey="profit" radius={[4, 4, 0, 0]}>
-                  {data.chartSeries.map((entry) => (
-                    <Cell
-                      key={entry.date}
-                      fill={entry.profit >= 0 ? '#16A34A' : '#DC2626'}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <ProfitChart chartSeries={data.chartSeries} />
           </CardContent>
         </Card>
       </div>

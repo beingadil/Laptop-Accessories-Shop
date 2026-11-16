@@ -16,7 +16,6 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react', 'recharts'],
   },
-  transpilePackages: ['motion'],
   webpack: (config, {dev}) => {
     // Set DISABLE_HMR=true to disable file watching during agent-driven edits.
     if (dev && process.env.DISABLE_HMR === 'true') {
