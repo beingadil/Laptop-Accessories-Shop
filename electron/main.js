@@ -320,6 +320,17 @@ function registerUpdateHandlers() {
   });
 
   ipcMain.handle('updater:install', () => {
+    // Stop the embedded Next server (holds the DB + port 3456) BEFORE the
+    // installer restarts us — otherwise the install can collide with the
+    // running instance and leave a half-updated bundle.
+    if (serverProcess) {
+      try {
+        serverProcess.kill();
+      } catch {
+        /* best effort */
+      }
+      serverProcess = null;
+    }
     if (!autoUpdater) return { ok: false };
     autoUpdater.quitAndInstall(false, true);
     return { ok: true };

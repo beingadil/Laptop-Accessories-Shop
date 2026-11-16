@@ -35,6 +35,7 @@ import { Input } from '@/components/ui/input';
 import { formatPKR } from '@/lib/format';
 import { BrandMark } from '@/components/branding/BrandMark';
 import { useBranding } from '@/components/branding/BrandingProvider';
+import { UpdateBanner } from '@/components/layout/UpdateBanner';
 
 interface SubNavItem {
   label: string;
@@ -920,6 +921,9 @@ export function AppShell({
             )}
           </div>
         </header>
+
+        {/* Update notification banner (desktop app only) */}
+        <UpdateBanner />
 
         {/* Page Main Content */}
         <main className="flex-1 p-4 lg:p-6">{children}</main>

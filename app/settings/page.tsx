@@ -14,6 +14,7 @@ import {
   Save,
   Store,
   Trash2,
+  TriangleAlert,
   Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -88,6 +89,9 @@ function SettingsContent() {
   const [downloadingBackup, setDownloadingBackup] = React.useState(false);
   const [restoreFile, setRestoreFile] = React.useState<File | null>(null);
   const [restoreConfirmOpen, setRestoreConfirmOpen] = React.useState(false);
+  const [wipeConfirmOpen, setWipeConfirmOpen] = React.useState(false);
+  const [wipeText, setWipeText] = React.useState('');
+  const [wipingData, setWipingData] = React.useState(false);
   const [restoring, setRestoring] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -269,6 +273,31 @@ function SettingsContent() {
       toast.error('Network error updating credentials.');
     } finally {
       setSavingPassword(false);
+    }
+  }
+
+  async function handleWipeAllData() {
+    if (wipeText !== 'WIPE') return;
+    setWipingData(true);
+    try {
+      const res = await fetch('/api/wipe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: 'WIPE' }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error || 'Wipe failed. Nothing was deleted.');
+        return;
+      }
+      toast.success('All shop data wiped. A pre-wipe snapshot was saved next to the database.');
+      setWipeConfirmOpen(false);
+      setWipeText('');
+      window.location.reload();
+    } catch {
+      toast.error('Network error wiping data. Please try again.');
+    } finally {
+      setWipingData(false);
     }
   }
 
@@ -759,6 +788,50 @@ function SettingsContent() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Danger zone: wipe all business data */}
+            <Card className="border-red-200">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <TriangleAlert className="h-4 w-4 text-red-600" />
+                  <CardTitle className="text-red-700">Danger Zone — Wipe All Shop Data</CardTitle>
+                </div>
+                <CardDescription>
+                  Permanently deletes every sale, purchase, payment, expense, warranty, return,
+                  stock movement, product, customer, supplier and audit log. Your admin account,
+                  shop settings and product/expense categories are kept. A pre-wipe snapshot
+                  (&lt;database&gt;.pre-wipe.bak) is saved next to the database for recovery.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-xl border border-red-200 bg-red-50/60 p-4 space-y-3">
+                  <p className="text-xs font-medium text-red-700">
+                    Type <span className="font-mono font-bold">WIPE</span> to enable the button.
+                    This action cannot be undone.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Input
+                      value={wipeText}
+                      onChange={(e) => setWipeText(e.target.value)}
+                      placeholder="Type WIPE"
+                      className="h-9 w-44 border-red-200 bg-white font-mono text-red-700 placeholder:text-red-300 focus-visible:ring-red-500"
+                      autoComplete="off"
+                      spellCheck={false}
+                      aria-label="Type WIPE to confirm full data wipe"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      disabled={wipingData || wipeText !== 'WIPE'}
+                      onClick={() => setWipeConfirmOpen(true)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      {wipingData ? 'Wiping…' : 'Wipe Everything'}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Tab 6: Application Updates */}
@@ -863,6 +936,16 @@ function SettingsContent() {
         confirmLabel="Yes, Overwrite & Restore"
         loading={restoring}
         onConfirm={handleRestoreDatabase}
+      />
+
+      <ConfirmDialog
+        open={wipeConfirmOpen}
+        onOpenChange={setWipeConfirmOpen}
+        title="Wipe All Shop Data?"
+        description="Every sale, purchase, payment, expense, warranty, return, stock movement, product, customer, supplier and audit record will be permanently deleted. Admin login and shop settings are kept. A pre-wipe snapshot is saved next to the database for recovery. This cannot be undone."
+        confirmLabel="Yes, Wipe Everything"
+        loading={wipingData}
+        onConfirm={handleWipeAllData}
       />
     </>
   );

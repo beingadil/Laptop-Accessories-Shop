@@ -3,6 +3,15 @@
 All notable changes to this project are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: [SemVer](https://semver.org/).
 
+## [1.2.0] - 2026-11-16 (tag `v1.2.0`)
+
+In-app update flow + full data wipe.
+
+### Added
+- **In-app update banner** (every authenticated screen): with a single tap you can see "Update available", watch the download progress bar fill, and restart the app to apply the update — all without leaving the window. Powered by electron-updater + GitHub Releases. Settings → Updates tab has the full controls as well.
+- **Wipe All Shop Data** in Settings → Backup & Restore → Danger Zone: deletes every sale, purchase, payment, expense, warranty, return, stock movement, product, customer, supplier and audit log. Admin login and shop settings + reference categories are kept. Requires typing WIPE and confirms through a second dialog; a pre-wipe snapshot (`<db>.pre-wipe.bak`) is saved before deletion.
+- Update install now explicitly stops the embedded Next.js server process (holds DB + port 3456) before applying the update.
+
 ## [1.1.1] - 2026-11-16 (tag `v1.1.1`)
 
 ### Added
