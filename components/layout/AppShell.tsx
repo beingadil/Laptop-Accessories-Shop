@@ -699,12 +699,19 @@ export function AppShell({
           />
         </React.Suspense>
 
-        <div className="border-t border-slate-200 p-3 flex items-center justify-between gap-2">
+        <div
+          className={`border-t border-slate-200 p-3 flex gap-2 ${
+            collapsed ? 'flex-col items-center' : 'items-center justify-between'
+          }`}
+        >
           <button
             type="button"
             onClick={() => setCollapsed((prev) => !prev)}
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className="hidden lg:flex flex-1 items-center justify-center gap-2 rounded-lg border border-slate-200 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className={`hidden lg:flex items-center justify-center gap-2 rounded-lg border border-slate-200 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 ${
+              collapsed ? 'w-full' : 'flex-1'
+            }`}
           >
             {collapsed ? (
               <PanelLeftOpen className="h-4 w-4" />
@@ -720,10 +727,12 @@ export function AppShell({
             onClick={handleSignOut}
             title="Sign out"
             aria-label="Sign out"
-            className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 lg:px-2.5"
+            className={`flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 ${
+              collapsed ? 'w-full' : ''
+            }`}
           >
             <LogOut className="h-4 w-4" />
-            <span>Sign out</span>
+            {!collapsed && <span>Sign out</span>}
           </button>
         </div>
       </aside>

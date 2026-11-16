@@ -113,8 +113,8 @@ export function ProductForm({ initialData }: { initialData?: ProductFormInitialD
     e.preventDefault();
     setError('');
 
-    if (!form.name.trim() || !form.sku.trim() || !form.categoryId || !form.brand.trim() || !form.model.trim()) {
-      setError('Please complete all required fields marked with *.');
+    if (!form.name.trim() || !form.sku.trim() || !form.categoryId) {
+      setError('Please complete the required fields marked with *.');
       return;
     }
 
@@ -209,26 +209,26 @@ export function ProductForm({ initialData }: { initialData?: ProductFormInitialD
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="prod-brand" required>
-                Brand
+              <Label htmlFor="prod-brand">
+                Brand <span className="font-normal text-slate-400">(optional)</span>
               </Label>
               <Input
                 id="prod-brand"
                 value={form.brand}
                 onChange={(e) => setForm({ ...form, brand: e.target.value })}
-                placeholder="e.g., HP, Dell, Lenovo"
+                placeholder="e.g., HP, Dell, Lenovo — leave blank if not applicable"
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="prod-model" required>
-                Model
+              <Label htmlFor="prod-model">
+                Model <span className="font-normal text-slate-400">(optional)</span>
               </Label>
               <Input
                 id="prod-model"
                 value={form.model}
                 onChange={(e) => setForm({ ...form, model: e.target.value })}
-                placeholder="e.g., EliteBook 840 G6"
+                placeholder="e.g., EliteBook 840 G6 — leave blank if not applicable"
               />
             </div>
 

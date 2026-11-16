@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth, handleApiError, parseDateParam } from '@/lib/api-utils';
+import { requireAuth, handleApiError, parseDateParam, BusinessRuleError } from '@/lib/api-utils';
 import { parsePaginationParams } from '@/lib/format';
 import { calculateNetProfit } from '@/lib/domain/calculations';
 import type { Prisma } from '@prisma/client';
@@ -295,6 +295,12 @@ export async function GET(req: NextRequest) {
         pageSize,
         totalPages: Math.max(1, Math.ceil(total / pageSize)),
       });
+    }
+
+    if (reportType !== 'movements') {
+      throw new BusinessRuleError(
+        `Unknown report type "${reportType}". Expected one of: sales, purchases, inventory, financial, customers, movements.`
+      );
     }
 
     // Stock movements report

@@ -2,12 +2,21 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Plus, Edit2, Trash2, CreditCard } from 'lucide-react';
+import { Plus, Edit2, Trash2, CreditCard, Check, X, Tags } from 'lucide-react';
 import { toast } from 'sonner';
 import { AppShell } from '@/components/layout/AppShell';
 import { DataTable, type DataTableColumn } from '@/components/tables/DataTable';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/date-picker';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { formatDate, formatPKR } from '@/lib/format';
 import { exportToExcel, exportToPDF } from '@/lib/export';
@@ -16,6 +25,8 @@ import { useDebouncedValue } from '@/hooks/use-debounced-value';
 interface ExpenseCategory {
   id: string;
   name: string;
+  status?: 'ACTIVE' | 'INACTIVE';
+  _count?: { expenses: number };
 }
 
 interface ExpenseRow {
@@ -47,6 +58,14 @@ export default function ExpensesPage() {
 
   const [deleteTarget, setDeleteTarget] = React.useState<ExpenseRow | null>(null);
   const [deleting, setDeleting] = React.useState(false);
+  const [managerOpen, setManagerOpen] = React.useState(false);
+  const [newCategoryName, setNewCategoryName] = React.useState('');
+  const [addingCategory, setAddingCategory] = React.useState(false);
+  const [editingCategoryId, setEditingCategoryId] = React.useState<string | null>(null);
+  const [editingCategoryName, setEditingCategoryName] = React.useState('');
+  const [savingCategory, setSavingCategory] = React.useState(false);
+  const [categoryDeleteTarget, setCategoryDeleteTarget] = React.useState<ExpenseCategory | null>(null);
+  const [deletingCategory, setDeletingCategory] = React.useState(false);
 
   React.useEffect(() => {
     fetch('/api/expense-categories')
@@ -117,6 +136,89 @@ export default function ExpensesPage() {
       toast.error('Network error deleting expense.');
     } finally {
       setDeleting(false);
+    }
+  }
+
+  async function handleAddCategory(e: React.FormEvent) {
+    e.preventDefault();
+    const name = newCategoryName.trim();
+    if (name.length < 2) {
+      toast.error('Category name must be at least 2 characters.');
+      return;
+    }
+    setAddingCategory(true);
+    try {
+      const res = await fetch('/api/expense-categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error || 'Could not create category.');
+        return;
+      }
+      setCategories((prev) =>
+        [...prev, { id: json.id, name: json.name, status: json.status as 'ACTIVE' | 'INACTIVE', _count: { expenses: 0 } }].sort((a, b) =>
+          a.name.localeCompare(b.name)
+        )
+      );
+      setNewCategoryName('');
+      toast.success(`Category "${json.name}" created.`);
+    } catch {
+      toast.error('Network error creating category.');
+    } finally {
+      setAddingCategory(false);
+    }
+  }
+
+  async function handleRenameCategory(id: string) {
+    const name = editingCategoryName.trim();
+    if (name.length < 2) {
+      toast.error('Category name must be at least 2 characters.');
+      return;
+    }
+    setSavingCategory(true);
+    try {
+      const res = await fetch(`/api/expense-categories/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error || 'Could not rename category.');
+        return;
+      }
+      setCategories((prev) => prev.map((c) => (c.id === id ? { ...c, name: json.name } : c)));
+      setEditingCategoryId(null);
+      toast.success('Category renamed.');
+    } catch {
+      toast.error('Network error renaming category.');
+    } finally {
+      setSavingCategory(false);
+    }
+  }
+
+  async function handleDeleteCategory() {
+    if (!categoryDeleteTarget) return;
+    setDeletingCategory(true);
+    try {
+      const res = await fetch(`/api/expense-categories/${categoryDeleteTarget.id}`, {
+        method: 'DELETE',
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error || 'Could not delete category.');
+        return;
+      }
+      setCategories((prev) => prev.filter((c) => c.id !== categoryDeleteTarget.id));
+      setCategoryDeleteTarget(null);
+      toast.success('Category deleted.');
+    } catch {
+      toast.error('Network error deleting category.');
+    } finally {
+      setDeletingCategory(false);
     }
   }
 
@@ -205,12 +307,18 @@ export default function ExpensesPage() {
               Monitor daily operating expenses deducted from gross profit to calculate net profit.
             </p>
           </div>
-          <Button asChild>
-            <Link href="/expenses/new">
-              <Plus className="h-4 w-4" />
-              Add Expense
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setManagerOpen(true)}>
+              <Tags className="h-4 w-4" />
+              <span className="hidden sm:inline">Categories</span>
+            </Button>
+            <Button asChild>
+              <Link href="/expenses/new">
+                <Plus className="h-4 w-4" />
+                Add Expense
+              </Link>
+            </Button>
+          </div>
         </div>
 
         {/* Summary Strip */}
@@ -336,6 +444,125 @@ export default function ExpensesPage() {
           }
         />
       </div>
+
+      <Dialog open={managerOpen} onOpenChange={setManagerOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Manage Expense Categories</DialogTitle>
+            <DialogDescription>
+              Rename or delete categories. Categories that have expenses cannot be deleted.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleAddCategory} className="flex gap-2">
+            <Input
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              placeholder="New category name"
+              className="h-9"
+              aria-label="New category name"
+            />
+            <Button type="submit" disabled={addingCategory} className="h-9 shrink-0">
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">{addingCategory ? 'Adding…' : 'Add'}</span>
+            </Button>
+          </form>
+
+          <div className="max-h-80 divide-y divide-slate-100 overflow-y-auto">
+            {categories.map((cat) => (
+              <div key={cat.id} className="flex items-center justify-between gap-2 py-2">
+                {editingCategoryId === cat.id ? (
+                  <Input
+                    value={editingCategoryName}
+                    onChange={(e) => setEditingCategoryName(e.target.value)}
+                    className="h-8"
+                    autoFocus
+                    aria-label="Edit category name"
+                  />
+                ) : (
+                  <div className="min-w-0">
+                    <span className="text-sm font-medium text-slate-800">{cat.name}</span>
+                    <span className="ml-2 text-[11px] tabular-nums text-slate-400">
+                      {cat._count?.expenses ?? 0} expense(s)
+                    </span>
+                  </div>
+                )}
+                <div className="flex shrink-0 items-center gap-1">
+                  {editingCategoryId === cat.id ? (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleRenameCategory(cat.id)}
+                        disabled={savingCategory}
+                        title="Save name"
+                      >
+                        <Check className="h-4 w-4 text-green-600" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setEditingCategoryId(null)}
+                        disabled={savingCategory}
+                        title="Cancel"
+                      >
+                        <X className="h-4 w-4 text-slate-500" />
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setEditingCategoryId(cat.id);
+                          setEditingCategoryName(cat.name);
+                        }}
+                        title="Rename category"
+                      >
+                        <Edit2 className="h-4 w-4 text-slate-600" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setCategoryDeleteTarget(cat)}
+                        title="Delete category"
+                      >
+                        <Trash2 className="h-4 w-4 text-slate-600" />
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+            {categories.length === 0 && (
+              <p className="py-6 text-center text-sm text-slate-500">No categories yet.</p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setManagerOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={Boolean(categoryDeleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) setCategoryDeleteTarget(null);
+        }}
+        title="Delete Expense Category"
+        description={
+          categoryDeleteTarget
+            ? `Delete "${categoryDeleteTarget.name}"? Categories with expenses cannot be deleted.`
+            : ''
+        }
+        confirmLabel="Delete Category"
+        loading={deletingCategory}
+        onConfirm={handleDeleteCategory}
+      />
 
       <ConfirmDialog
         open={Boolean(deleteTarget)}

@@ -2,11 +2,12 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Edit2, ShieldCheck } from 'lucide-react';
+import { Edit2, ShieldCheck, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AppShell } from '@/components/layout/AppShell';
 import { DataTable, type DataTableColumn } from '@/components/tables/DataTable';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -65,6 +66,8 @@ export default function WarrantyPage() {
   const [editStatus, setEditStatus] = React.useState<'ACTIVE' | 'EXPIRED' | 'VOID'>('ACTIVE');
   const [editTerms, setEditTerms] = React.useState('');
   const [saving, setSaving] = React.useState(false);
+  const [deleteTarget, setDeleteTarget] = React.useState<WarrantyRow | null>(null);
+  const [deleting, setDeleting] = React.useState(false);
 
   const debouncedSearch = useDebouncedValue(search, 150);
 
@@ -139,6 +142,26 @@ export default function WarrantyPage() {
       toast.error('Network error updating warranty.');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDeleteWarranty() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/warranties/${deleteTarget.id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error || 'Could not delete warranty.');
+        return;
+      }
+      toast.success('Warranty record deleted.');
+      setDeleteTarget(null);
+      loadWarranties();
+    } catch {
+      toast.error('Network error deleting warranty.');
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -236,14 +259,24 @@ export default function WarrantyPage() {
       header: 'Manage',
       align: 'right',
       render: (row) => (
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => openEdit(row)}
-          title="Edit Warranty Terms"
-        >
-          <Edit2 className="h-4 w-4 text-slate-600" />
-        </Button>
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => openEdit(row)}
+            title="Edit Warranty Terms"
+          >
+            <Edit2 className="h-4 w-4 text-slate-600" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setDeleteTarget(row)}
+            title="Delete Warranty Record"
+          >
+            <Trash2 className="h-4 w-4 text-slate-600" />
+          </Button>
+        </div>
       ),
     },
   ];
@@ -393,6 +426,16 @@ export default function WarrantyPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Delete Warranty Record"
+        description={`Permanently delete the warranty record for ${deleteTarget?.product?.name ?? 'this item'} (invoice ${deleteTarget?.sale?.invoiceNumber ?? ''})? The invoice itself is not affected.`}
+        confirmLabel="Delete Warranty"
+        loading={deleting}
+        onConfirm={handleDeleteWarranty}
+      />
     </AppShell>
   );
 }
